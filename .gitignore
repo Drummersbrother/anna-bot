@@ -48,3 +48,6 @@ config.json
 # Shell files
 *.sh
 __pycache__/
+
+# Music and sound files
+*.mp3

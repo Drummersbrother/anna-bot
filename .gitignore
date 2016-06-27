@@ -44,3 +44,7 @@ config.json
 
 .idea/*
 .idea
+
+# Shell files
+*.sh
+__pycache__/

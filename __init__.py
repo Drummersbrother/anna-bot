@@ -185,7 +185,9 @@ async def on_message(message: discord.Message):
 async def on_member_join(member: discord.Member):
     """This event is called when a member joins a server, and we use it to welcome the user to the server"""
 
-    # We check if the server is on the list of server who use this feature
+    # TODO Is this working at all?
+
+    # We check if the server is on the list of servers who use this feature
     if member.server.id in [x[0] for x in config["join_msg"]["server_and_channel_id_pairs"]]:
 
         # We send a message to the specified channels in that server (you can have however many channels you want, but we check if they are on the correct server)

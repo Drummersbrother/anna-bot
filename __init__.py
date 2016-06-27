@@ -1063,3 +1063,5 @@ formatted_uptime = helpers.get_formatted_duration_fromtime(uptime_secs_noformat)
 # Logging that we've stopped the bot
 helpers.log_info(
     "Anna-bot is now exiting (you'll notice if we get any errors), we have been up for %s." % formatted_uptime)
+
+# TODO Make an admin command to change the bot user icon to a specified image (a link probably)

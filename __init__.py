@@ -16,7 +16,7 @@ async def on_message(message: discord.Message):
     # We wait for a split second so we can be assured that ignoring of messages and other things have finished before the message is processed here
     await asyncio.sleep(0.1)
 
-    # The weird mention for the bot user, the string manipulation is due to mention strings not being the same all the time
+    # The weird mention for the bot user (mention code starts with an exclamation mark instead of just the user ID), the string manipulation is due to mention strings not being the same all the time
     client_mention = client.user.mention[:2] + "!" + client.user.mention[2:]
 
     # Log the message using proper formatting techniques (and some sanity checking so we log our own sent messages separately)
@@ -30,8 +30,30 @@ async def on_message(message: discord.Message):
                 if message.channel.name not in config["log_config"]["ignored_log_channels"]:
                     helpers.log_info(
                         message.author.name + " said: \"" + message.content + "\" in channel: \"" + message.channel.name + "\" on server \"" + message.server.name + "\".")
+
+            # We check if there were any attachments to the message, and if so, we log all the relevant info we can get about the attachment
+            if message.attachments:
+                # We log that the user sent attachments
+                helpers.log_info("{0:s} attached {1:d} file(s)".format(message.author.name, len(message.attachments)))
+
+                # We loop through all the attachments
+                for attachment in message.attachments:
+                    # We check for the image/video-like attributes width and height (in pixels obviously) and we output them if they exist
+                    if ("width" in attachment) and ("height" in attachment):
+                        # We log the attachment as an image/video-like file
+                        helpers.log_info(
+                            "User {0:s} attached image/video-like file \"{1:s}\" of dimensions X: {2:d} and Y: {3:d} and filesize {4:d} bytes.".format(
+                                message.author.name, attachment["filename"], attachment["width"], attachment["height"],
+                                attachment["size"]))
+
+                    else:
+                        # We log the attachment as a unknown filetype
+                        helpers.log_info(
+                            "User {0:s} attached file \"{1:s}\" of filesize {2:d} bytes.".format(
+                                message.author.name, attachment["filename"], attachment["size"]))
+
     else:
-        # We sent a message and we are going ton increase the sent messages counter in the config
+        # We sent a message and we are going to increase the sent messages counter in the config
         # We first load the config
         with open("config.json", mode="r", encoding="utf-8") as config_file:
             current_config = json.load(config_file)
@@ -967,7 +989,6 @@ async def cmd_admin_reload_config(message: discord.Message):
 
 async def cmd_admin_change_icon(message: discord.Message):
     """This admin command is used to change the icon of the bot user to a specified image."""
-
 
 
 def is_message_command(message: discord.Message):

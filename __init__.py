@@ -282,13 +282,13 @@ async def cmd_help(message: discord.Message):
     for helpcommand in public_commands:
 
         # We check if the last chunk is too will become too large or not
-        if len(public_commands_helptext[-1] + "\n-------------------------\n\t" + "admin " + helpcommand[
-            "command"] + "\n" + helpcommand["helptext"] + "\n-------------------------") > 2000:
-            # We add another string to he list opf messages we want to send
+        if len(public_commands_helptext[-1] + "\n-------------------------\n\t" + "**" + helpcommand[
+            "command"] + "**\n" + helpcommand["helptext"] + "\n-------------------------") > 2000:
+            # We add another string to he list of messages we want to send
             public_commands_helptext.append("")
 
-        public_commands_helptext[-1] += "\n-------------------------\n\t" + "admin " + helpcommand[
-            "command"] + "\n" + helpcommand["helptext"] + "\n-------------------------"
+        public_commands_helptext[-1] += "\n-------------------------\n\t" + "**" + helpcommand[
+            "command"] + "**\n" + helpcommand["helptext"] + "\n-------------------------"
 
     # Checking if the issuer is an admin user, so we know if we should show them the admin commands
     if int(message.author.id) in config["somewhat_weird_shit"]["admin_user_ids"]:
@@ -296,17 +296,16 @@ async def cmd_help(message: discord.Message):
         admin_commands_helptext = [""]
 
         # Looping through all the admin commands to add their helptexts to the correct chunks
-        # TODO Handle individual helptexts with over 2000 chars
         for helpcommand in admin_commands:
 
             # We check if the last chunk is too will become too large or not
-            if len(admin_commands_helptext[-1] + "\n-------------------------\n\t" + "admin " + helpcommand[
-                "command"] + "\n" + helpcommand["helptext"] + "\n-------------------------") > 2000:
-                # We add another string to he list opf messages we want to send
+            if len(admin_commands_helptext[-1] + "\n-------------------------\n\t" + "admin **" + helpcommand[
+                "command"] + "**\n" + helpcommand["helptext"] + "\n-------------------------") > 2000:
+                # We add another string to he list of messages we want to send
                 admin_commands_helptext.append("")
 
-            admin_commands_helptext[-1] += "\n-------------------------\n\t" + "admin " + helpcommand[
-                "command"] + "\n" + helpcommand["helptext"] + "\n-------------------------"
+            admin_commands_helptext[-1] += "\n-------------------------\n\t" + "admin **" + helpcommand[
+                "command"] + "**\n" + helpcommand["helptext"] + "\n-------------------------"
 
     # How many seconds we should wait between each message
     cooldown_time = 0.5
@@ -966,6 +965,11 @@ async def cmd_admin_reload_config(message: discord.Message):
         await client.send_message(message.channel, "Ok " + message.author.mention + ", I'm done reloading it now :)")
 
 
+async def cmd_admin_change_icon(message: discord.Message):
+    """This admin command is used to change the icon of the bot user to a specified image."""
+
+
+
 def is_message_command(message: discord.Message):
     """This function is used to check whether a message is trying to issue an anna-bot command"""
 
@@ -1035,7 +1039,7 @@ public_commands = [dict(command="invite", method=cmd_invite_link,
                         helptext="Use this if you want an explanation as to what anna-bot is."),
                    dict(command="help", method=cmd_help, helptext="Do I really need to explain this...")]
 
-# The commands authorised users can use, these are some pretty powerful commands, so be careful with which users you give administrative access to the bot
+# The commands authorised users can use, these are some pretty powerful commands, so be careful with which users you give administrative access to the bot to
 admin_commands = [dict(command="broadcast", method=cmd_admin_broadcast,
                        helptext="Broadcasts a message to all the channels that anna-bot has access to."),
                   dict(command="reload config", method=cmd_admin_reload_config,
@@ -1057,7 +1061,7 @@ start_time = time.time()
 # Starting and authenticating the bot
 client.run(config["credentials"]["token"])
 
-# Calculating and formatting how long the bot was online so we can log it
+# Calculating and formatting how long the bot was online so we can log it, this is on multiple statements for clarity
 end_time = time.time()
 uptime_secs_noformat = (end_time - start_time) // 1
 formatted_uptime = helpers.get_formatted_duration_fromtime(uptime_secs_noformat)

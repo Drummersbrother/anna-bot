@@ -297,11 +297,10 @@ async def cmd_help(message: discord.Message):
     # The correct mention for the bot user, the string manipulation is due to mention strings not being the same depending on if a user or the library generated it
     client_mention = client.user.mention[:2] + "!" + client.user.mention[2:]
 
-    # Generating the combined and formatted helptext of all the public commands (we do this in >2000 char chunks, as 2000 chars is the max length of a discord message)
+    # Generating the combined and formatted helptext of all the public commands (we do this in <2000 char chunks, as 2000 chars is the max length of a discord message)
     public_commands_helptext = [""]
 
     # Looping through all the public commands to add their helptexts to the correct chunks
-    # TODO Handle individual helptexts with over 2000 chars
     for helpcommand in public_commands:
 
         # We check if the last chunk is too will become too large or not

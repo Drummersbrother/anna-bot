@@ -228,6 +228,20 @@ async def on_member_join(member: discord.Member):
                 await client.send_message(discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels),
                                           config["join_msg"]["welcome_msg"].format(member.mention, member.server.name))
 
+    # We check if the user joined a server that has enabled the automatic role moving feature
+    if int(member.server.id) in [x[0] for x in config["default_role"]["server_and_default_role_id_pairs"]]:
+
+        # We store the role that we want to move the new user into
+        target_role = discord.utils.get(member.server.roles, id=[x[1] for x in config["default_role"]["server_and_default_role_id_pairs"] if x[0] == int(member.server.id)][0])
+
+        # The user has joined a server where we should put them into a role, so we check if we have the permission to do that (if we are higher up in the role hierarchy than the user and the target role and if we have the manage roles permission)
+        if (member.server.me.top_role.position > member.top_role.position) and (member.server.me.top_role.position > target_role.position):
+            # We check if we have the manage roles permission
+            if client.user.permissions_in(member.server.default_channel).manage_roles:
+
+                # We have all the appropriate permissions to move the user to the target role, so we do it :)
+                await client.add_roles(member, discord.utils.get(member.server.roles, id=target_role))
+
 
 async def cmd_invite_link(message: discord.Message):
     """This method is called to handle someone typing the message '!invite'."""
@@ -1142,5 +1156,3 @@ formatted_uptime = helpers.get_formatted_duration_fromtime(uptime_secs_noformat)
 # Logging that we've stopped the bot
 helpers.log_info(
     "Anna-bot is now exiting (you'll notice if we get any errors), we have been up for %s." % formatted_uptime)
-
-# TODO Add automatic putting in new members of a server into a default role (if configured for that server and if the bot has appropriate permissions to do so for that server)

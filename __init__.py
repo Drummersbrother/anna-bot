@@ -1144,3 +1144,5 @@ formatted_uptime = helpers.get_formatted_duration_fromtime(uptime_secs_noformat)
 # Logging that we've stopped the bot
 helpers.log_info(
     "Anna-bot is now exiting (you'll notice if we get any errors), we have been up for %s." % formatted_uptime)
+
+# TODO Add automatic putting in new members of a server into a default role (if configured for that server and if the bot has appropriate permissions to do so for that server)

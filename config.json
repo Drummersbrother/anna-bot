@@ -35,6 +35,9 @@
         SERVER ID, CHANNEL ID
       ]
     ]
+  }
+    "default_role": {
+    "server_and_default_role_id_pairs": []
   },
   "logging": {
     "log_file_name": "discord.log"

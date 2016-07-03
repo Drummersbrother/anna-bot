@@ -206,28 +206,28 @@ async def on_message(message: discord.Message):
 
 @client.event
 async def on_member_join(member: discord.Member):
-    """This event is called when a member joins a server, and we use it to welcome the user to the server"""
+    """This event is called when a member joins a server, we use it for various features."""
 
-    # TODO Is this working at all?
+    # We wait as to not do stuff before the user has actually joined the server
+    await asyncio.sleep(0.2)
 
-    # We check if the server is on the list of servers who use this feature
-    if member.server.id in [x[0] for x in config["join_msg"]["server_and_channel_id_pairs"]]:
+    # We log that a user has joined the server
+    helpers.log_info(
+        "User %s (%s) has joined server %s (%s)." % (member.name, member.id, member.server.name, member.server.id))
+
+    # We check if the server is on the list of servers who use the welcome message feature
+    if int(member.server.id) in [x[0] for x in config["join_msg"]["server_and_channel_id_pairs"]]:
 
         # We send a message to the specified channels in that server (you can have however many channels you want, but we check if they are on the correct server)
-        channel_ids = [x for x in config["join_msg"]["server_and_channel_id_pairs"] if x[0] == member.server.id][0][1:]
-
-        # We log that someone joined in a server where the welcome message was set up
-        helpers.log_info(
-            "User \"%s\" joined the server \"%s\", which has enabled the welcome message functionality." % (
-                member.name, member.server.name))
+        channel_ids = \
+        [x[1:] for x in config["join_msg"]["server_and_channel_id_pairs"] if x[0] == int(member.server.id)][0]
 
         # We loop through all the possible channels and check if they're valid
-        for channel_id in channel_ids:
-
+        for channel_id in [int(x) for x in channel_ids]:
             # We check if the channel id is on the server that the member joined
-            if discord.utils.get(member.server.channels, id=channel_id) is not None:
+            if discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels) is not None:
                 # We send the welcome message:
-                await client.send_message(discord.utils.get(member.server.channels, id=channel_id),
+                await client.send_message(discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels),
                                           config["join_msg"]["welcome_msg"].format(member.mention, member.server.name))
 
 

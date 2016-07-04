@@ -212,7 +212,7 @@ async def on_member_join(member: discord.Member):
     await asyncio.sleep(0.2)
 
     # We log that a user has joined the server
-    helpers.log_info("User %s (%s) has joined server %s (%s)." % (member.name, member.id, member.server.name, member.server.id))
+    helpers.log_info("User {0:s} ({1:s}) has joined server {2:s} ({3:s}).".format(member.name, member.id, member.server.name, member.server.id))
 
     # We check if the server is on the list of servers who use the welcome message feature
     if int(member.server.id) in [x[0] for x in config["join_msg"]["server_and_channel_id_pairs"]]:
@@ -228,19 +228,33 @@ async def on_member_join(member: discord.Member):
                 await client.send_message(discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels),
                                           config["join_msg"]["welcome_msg"].format(member.mention, member.server.name))
 
+    # TODO This isn't working, why?
+
     # We check if the user joined a server that has enabled the automatic role moving feature
     if int(member.server.id) in [x[0] for x in config["default_role"]["server_and_default_role_id_pairs"]]:
+
+        # Logging that we're going to try putting the new user into the default role for the server
+        helpers.log_info("Going to try putting user {0:s} ({1:s}) in default role for server {2:s} ({3:s})".format(member.name, member.id, member.server.name, member.server.id))
 
         # We store the role that we want to move the new user into
         target_role = discord.utils.get(member.server.roles, id=[x[1] for x in config["default_role"]["server_and_default_role_id_pairs"] if x[0] == int(member.server.id)][0])
 
         # The user has joined a server where we should put them into a role, so we check if we have the permission to do that (if we are higher up in the role hierarchy than the user and the target role and if we have the manage roles permission)
         if (member.server.me.top_role.position > member.top_role.position) and (member.server.me.top_role.position > target_role.position):
+            print("we're higher on both")
             # We check if we have the manage roles permission
             if client.user.permissions_in(member.server.default_channel).manage_roles:
-
+                print("We have manage roles permission")
                 # We have all the appropriate permissions to move the user to the target role, so we do it :)
                 await client.add_roles(member, discord.utils.get(member.server.roles, id=target_role))
+
+
+@client.event
+async def on_member_remove(member: discord.Member):
+    """This event is called when a member is removed from a server, we use it for various features."""
+
+    # TODO implement leave message in similar way to join message
+
 
 
 async def cmd_invite_link(message: discord.Message):

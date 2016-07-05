@@ -251,10 +251,26 @@ async def on_member_join(member: discord.Member):
 
 @client.event
 async def on_member_remove(member: discord.Member):
-    """This event is called when a member is removed from a server, we use it for various features."""
+    """This event is called when a member leaves a server, we use it for various features."""
 
-    # TODO implement leave message in similar way to join message
+    # We log that a user has left the server
+    helpers.log_info(
+        "User {0:s} ({1:s}) has left server {2:s} ({3:s}).".format(member.name, member.id, member.server.name,
+                                                                     member.server.id))
 
+    # We check if the server is on the list of servers who use the leave message feature
+    if int(member.server.id) in [x[0] for x in config["leave_msg"]["server_and_channel_id_pairs"]]:
+
+        # We send a message to the specified channels in that server (you can have however many channels you want, but we check if they are on the correct server)
+        channel_ids = [x[1:] for x in config["leave_msg"]["server_and_channel_id_pairs"] if x[0] == int(member.server.id)][0]
+
+        # We loop through all the possible channels and check if they're valid
+        for channel_id in [int(x) for x in channel_ids]:
+            # We check if the channel id is on the server that the member left
+            if discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels) is not None:
+                # We send the leave message:
+                await client.send_message(discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels),
+                                          config["leave_msg"]["leave_msg"].format(member.mention, member.server.name))
 
 
 async def cmd_invite_link(message: discord.Message):

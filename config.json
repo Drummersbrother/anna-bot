@@ -48,9 +48,12 @@
     "server_and_default_role_id_pairs": []
   },
   "vanity_role_commands": {
-    "command_role_id_pairs": [
+    "server_id_and_command_role_id_pairs": [
         [
-          "ROLE COMMAND", ROLE ID  
+          SERVER ID,
+          [
+            "ROLE COMMAND", ROLE ID  
+          ]
         ]
       ]
   },

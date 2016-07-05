@@ -1012,7 +1012,7 @@ async def cmd_list_ids(message: discord.Message):
 
     # We add the user ids
     list_of_ids += "User names and ids:\n" + str.join("", [(x[0] + " - " + x[1] + "\n") for x in
-                                                           [(str(c), c.id) for c in message.server.roles]])
+                                                           [(str(c), c.id) for c in message.server.members]])
 
     # As the list of ids can become arbitrarily big and the message size limit for discord is 2000 chars, we split the list into <2000 char chunks
     # We first check if the list needs to be split
@@ -1044,7 +1044,7 @@ async def cmd_list_ids(message: discord.Message):
     # The whole list of ids fit in one message
     else:
 
-        list_of_messages = list_of_ids
+        list_of_messages = [list_of_ids]
 
     # We message the user the list of ids
     await client.send_message(message.author, "Here is the list of ids:")

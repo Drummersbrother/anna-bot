@@ -237,9 +237,9 @@ async def on_member_join(member: discord.Member):
         # Logging that we're going to try putting the new user into the default role for the server
         helpers.log_info(
             "Going to try putting user {0:s} ({1:s}) in default role for server {2:s} ({3:s}).".format(member.name,
-                                                                                                      member.id,
-                                                                                                      member.server.name,
-                                                                                                      member.server.id))
+                                                                                                       member.id,
+                                                                                                       member.server.name,
+                                                                                                       member.server.id))
 
         # We store the role that we want to move the new user into
         target_role = discord.utils.get(member.server.roles, id=
@@ -468,7 +468,7 @@ async def cmd_who_r_u(message: discord.Message):
 
     # Just sending an explanation back in the same channel as the command was issued in
     await client.send_message(message.channel,
-                              "Anna-bot is a discord bot written in python (discord.py) by Hugo Berg (drummersbrother) for the Evalonia minecraft server (mcevalonia.com).")
+                              "Anna-bot is a discord bot written in python (discord.py), created by Hugo Berg (drummersbrother), for the Evalonia minecraft server (mcevalonia.com).\nDo you want to host your own anna-bot, or just look at and maybe even contribute to the code?\nhttps://github.com/Drummersbrother/anna-bot :wink:")
 
 
 async def cmd_report_stats(message: discord.Message):

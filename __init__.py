@@ -212,13 +212,16 @@ async def on_member_join(member: discord.Member):
     await asyncio.sleep(0.2)
 
     # We log that a user has joined the server
-    helpers.log_info("User {0:s} ({1:s}) has joined server {2:s} ({3:s}).".format(member.name, member.id, member.server.name, member.server.id))
+    helpers.log_info(
+        "User {0:s} ({1:s}) has joined server {2:s} ({3:s}).".format(member.name, member.id, member.server.name,
+                                                                     member.server.id))
 
     # We check if the server is on the list of servers who use the welcome message feature
     if int(member.server.id) in [x[0] for x in config["join_msg"]["server_and_channel_id_pairs"]]:
 
         # We send a message to the specified channels in that server (you can have however many channels you want, but we check if they are on the correct server)
-        channel_ids = [x[1:] for x in config["join_msg"]["server_and_channel_id_pairs"] if x[0] == int(member.server.id)][0]
+        channel_ids = \
+        [x[1:] for x in config["join_msg"]["server_and_channel_id_pairs"] if x[0] == int(member.server.id)][0]
 
         # We loop through all the possible channels and check if they're valid
         for channel_id in [int(x) for x in channel_ids]:
@@ -234,13 +237,19 @@ async def on_member_join(member: discord.Member):
     if int(member.server.id) in [x[0] for x in config["default_role"]["server_and_default_role_id_pairs"]]:
 
         # Logging that we're going to try putting the new user into the default role for the server
-        helpers.log_info("Going to try putting user {0:s} ({1:s}) in default role for server {2:s} ({3:s})".format(member.name, member.id, member.server.name, member.server.id))
+        helpers.log_info(
+            "Going to try putting user {0:s} ({1:s}) in default role for server {2:s} ({3:s})".format(member.name,
+                                                                                                      member.id,
+                                                                                                      member.server.name,
+                                                                                                      member.server.id))
 
         # We store the role that we want to move the new user into
-        target_role = discord.utils.get(member.server.roles, id=[x[1] for x in config["default_role"]["server_and_default_role_id_pairs"] if x[0] == int(member.server.id)][0])
+        target_role = discord.utils.get(member.server.roles, id=
+        [x[1] for x in config["default_role"]["server_and_default_role_id_pairs"] if x[0] == int(member.server.id)][0])
 
         # The user has joined a server where we should put them into a role, so we check if we have the permission to do that (if we are higher up in the role hierarchy than the user and the target role and if we have the manage roles permission)
-        if (member.server.me.top_role.position > member.top_role.position) and (member.server.me.top_role.position > target_role.position):
+        if (member.server.me.top_role.position > member.top_role.position) and (
+            member.server.me.top_role.position > target_role.position):
             print("we're higher on both")
             # We check if we have the manage roles permission
             if client.user.permissions_in(member.server.default_channel).manage_roles:
@@ -256,13 +265,14 @@ async def on_member_remove(member: discord.Member):
     # We log that a user has left the server
     helpers.log_info(
         "User {0:s} ({1:s}) has left server {2:s} ({3:s}).".format(member.name, member.id, member.server.name,
-                                                                     member.server.id))
+                                                                   member.server.id))
 
     # We check if the server is on the list of servers who use the leave message feature
     if int(member.server.id) in [x[0] for x in config["leave_msg"]["server_and_channel_id_pairs"]]:
 
         # We send a message to the specified channels in that server (you can have however many channels you want, but we check if they are on the correct server)
-        channel_ids = [x[1:] for x in config["leave_msg"]["server_and_channel_id_pairs"] if x[0] == int(member.server.id)][0]
+        channel_ids = \
+        [x[1:] for x in config["leave_msg"]["server_and_channel_id_pairs"] if x[0] == int(member.server.id)][0]
 
         # We loop through all the possible channels and check if they're valid
         for channel_id in [int(x) for x in channel_ids]:
@@ -966,6 +976,85 @@ async def cmd_voice_play_stop(message: discord.Message):
                                   "This is a PM channel, there are no voice channels belonging to PM channels.")
 
 
+async def cmd_list_ids(message: discord.Message):
+    """This command is used to get a list of all the ids of all things in the server."""
+
+    # We check if the command was issued in a PM
+    if not message.channel.is_private:
+
+        # We tell the user that we're going to send them a list of the ids in the server
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I'm sending the list in our PMs right now.")
+
+    # The command was issued in a PM
+    else:
+
+        # We tell the user that the command needs to be issued in a regular text channel on a regular server
+        await client.send_message(message.channel,
+                                  "This command does not work when issued in a PM, please issue it in a regular channel on a server")
+
+    # We create the list of ids (server id, text channel ids, voice channel ids, role ids, user ids)
+    list_of_ids = "Server name and ID:\n" + message.server.name + " - " + message.server.id + "\n\n"
+
+    # We add the text channel ids
+    list_of_ids += "Text channel names and ids:\n" + str.join("", [(x[0] + " - " + x[1] + "\n") for x in
+                                                                   [(c.name, c.id) for c in message.server.channels if
+                                                                    c.type == discord.ChannelType.text]]) + "\n"
+
+    # We add the voice channel ids
+    list_of_ids += "Voice channel names and ids:\n" + str.join("", [(x[0] + " - " + x[1] + "\n") for x in
+                                                                    [(c.name, c.id) for c in message.server.channels if
+                                                                     c.type == discord.ChannelType.voice]]) + "\n"
+
+    # We add the role ids
+    list_of_ids += "Role names and ids:\n" + str.join("", [(x[0] + " - " + x[1] + "\n") for x in
+                                                           [(c.name, c.id) for c in message.server.roles]]) + "\n"
+
+    # We add the user ids
+    list_of_ids += "User names and ids:\n" + str.join("", [(x[0] + " - " + x[1] + "\n") for x in
+                                                           [(str(c), c.id) for c in message.server.roles]])
+
+    # As the list of ids can become arbitrarily big and the message size limit for discord is 2000 chars, we split the list into <2000 char chunks
+    # We first check if the list needs to be split
+    if list_of_ids.__len__() > 1994:
+
+        # The list needs to be split as it is longer than 2000 chars
+        # We do this by splitting the list by newlines and then appending them together into new strings until just before it reaches >2000 chars
+        # The list of lines in the list of ids
+        split_list = list_of_ids.splitlines(True)
+
+        # The list of strings that we're going to send in the chat
+        list_of_messages = [""]
+
+        # We append the lines to messages in the list
+        for line in split_list:
+
+            # We check if the last message in the message list fits one more line (We save 6 chars to use for the backticks for the formatting)
+            if len(list_of_messages[-1] + line) < 1994:
+
+                # We add the line to the message
+                list_of_messages[-1] += line
+
+            # There wasn't enough space left so we create a new message
+            else:
+
+                # We create the new message
+                list_of_messages.append(line)
+
+    # The whole list of ids fit in one message
+    else:
+
+        list_of_messages = list_of_ids
+
+    # We message the user the list of ids
+    await client.send_message(message.author, "Here is the list of ids:")
+
+    # We send all the messages
+    for message_chunk in list_of_messages:
+        # We send the message chunk
+        await client.send_message(message.author, "```" + message_chunk + "```")
+
+
 async def cmd_admin_broadcast(message: discord.Message):
     """This method is used to handle admins wanting to broadcast a message to all servers and channel that anna-bot is in."""
 
@@ -1150,6 +1239,8 @@ public_commands = [dict(command="invite", method=cmd_invite_link,
                         helptext="Stop the audio that anna is currently playing."),
                    dict(command=config["start_server_cmd"]["start_server_command"], method=cmd_start_server,
                         helptext="Start the minecraft server (if the channel and users have the necessary permissions to do so)."),
+                   dict(command="list ids", method=cmd_list_ids,
+                        helptext="PMs you with a list of all the ids of all the things on the server. This includes roles, users, channels, and the server itself."),
                    dict(command="whoru", method=cmd_who_r_u,
                         helptext="Use this if you want an explanation as to what anna-bot is."),
                    dict(command="help", method=cmd_help, helptext="Do I really need to explain this...")]

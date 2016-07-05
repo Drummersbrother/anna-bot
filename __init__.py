@@ -117,7 +117,7 @@ async def on_message(message: discord.Message):
             if not used_command:
                 # Sending the message to the user
                 await client.send_message(message.channel,
-                                          "You seemingly just tried to use an anna-bot command, but I couldn't figure out which one you wanted to use, if you want to know what commands I can do for you, please type \"" + client_mention + " help\" :)")
+                                          "You seemingly just tried to use an anna-bot command, but I couldn't figure out which one you wanted to use, if you want to know what commands I can do for you, please type \"" + client_mention + " help\" :smile:")
             else:
                 # If the message was a command of any sort, we increment the commands received counter on anna
                 # We first load the config
@@ -180,7 +180,7 @@ async def on_message(message: discord.Message):
                 if not used_command:
                     # Sending the message to the user
                     await client.send_message(message.channel,
-                                              message.author.mention + ", you seemingly just tried to use an anna-bot command, but I couldn't figure out which one you wanted to use, if you want to know what commands I can do for you, please type \"" + client_mention + " help\" :)")
+                                              message.author.mention + ", you seemingly just tried to use an anna-bot command, but I couldn't figure out which one you wanted to use, if you want to know what commands I can do for you, please type \"" + client_mention + " help\" :smile:")
                 else:
                     # If the message was a command of any sort, we increment the commands received counter on anna
                     # We first load the config
@@ -296,7 +296,7 @@ async def cmd_invite_link(message: discord.Message):
 
     # Telling the user that we're working on it
     await client.send_message(message.channel,
-                              "Sure thing " + message.author.mention + ", you'll see the link in our PMs :)")
+                              "Sure thing " + message.author.mention + ", you'll see the link in our PMs :smile:")
 
     # Checking if the bot and the user has permissions to generate an invite link
     if message.author.permissions_in(message.channel).create_instant_invite and message.server.me.permissions_in(
@@ -308,7 +308,7 @@ async def cmd_invite_link(message: discord.Message):
         invite_url = invite_url.url
 
         # Make a message with proper formatting and put it in the chat where the invite link was requested, also mention the person who requested the link
-        await client.send_message(message.author, "Ok, here's an invite link :) " + invite_url +
+        await client.send_message(message.author, "Ok, here's an invite link :smile: " + invite_url +
                                   " (valid for " + str(config["invite_cmd"]["invite_valid_time_min"]) + "min and "
                                   + str(config["invite_cmd"]["invite_max_uses"]) + " use[s])")
 
@@ -339,7 +339,7 @@ async def cmd_start_server(message: discord.Message):
             server = subprocess.Popen(config["start_server_command"]["start_bat_filepath"],
                                       creationflags=subprocess.CREATE_NEW_CONSOLE)
             await client.send_message(message.channel,
-                                      "All done! But please note that it might take up to a minute before the server can accept any players :)")
+                                      "All done! But please note that it might take up to a minute before the server can accept any players :smile:")
         except Exception as e:
             # We output the error to the chat
             await client.send_message(message.channel, str(e))
@@ -396,13 +396,13 @@ async def cmd_help(message: discord.Message):
     if not message.channel.is_private:
         # Telling the user that we're working on it
         await client.send_message(message.channel,
-                                  "Sure thing " + message.author.mention + ", you'll see the commands and how to use them in our PMs :)")
+                                  "Sure thing " + message.author.mention + ", you'll see the commands and how to use them in our PMs :smile:")
 
     # Checking if the issuer is an admin user, so we know if we should show them the admin commands
     if int(message.author.id) in config["somewhat_weird_shit"]["admin_user_ids"]:
 
         # Just putting the helptexts we made in the PM with the command issuer
-        await client.send_message(message.author, "Ok, here are the commands you can use me for :)")
+        await client.send_message(message.author, "Ok, here are the commands you can use me for :smile:")
 
         # We send the helptexts in multiple messages to bypass the 2000 char limit, and we pause between each message to not get rate-limited
         for helptext in public_commands_helptext:
@@ -425,7 +425,7 @@ async def cmd_help(message: discord.Message):
     else:
 
         # Just putting the helptexts we made in the PM with the command issuer
-        await client.send_message(message.author, "Ok, here are the commands you can use me for :)")
+        await client.send_message(message.author, "Ok, here are the commands you can use me for :smile:")
 
         # We send the helptexts in multiple messages to bypass the 2000 char limit, and we pause between each message to not get rate-limited
         for helptext in public_commands_helptext:
@@ -460,7 +460,7 @@ async def cmd_gen_bot_invite(message: discord.Message):
 
     # Giving the url back to the user with proper formatting
     await client.send_message(message.channel,
-                              message.author.mention + ", here is the bot invite link :) " + invite_url + " (it has good permission defaults but you can, of course, change that on your own later.)")
+                              message.author.mention + ", here is the bot invite link :smile: " + invite_url + " (it has good permission defaults but you can, of course, change that on your own later.)")
 
 
 async def cmd_who_r_u(message: discord.Message):
@@ -1095,7 +1095,7 @@ async def cmd_admin_broadcast(message: discord.Message):
     helpers.log_info(message.author.name + "'s broadcast of the message \"" + message_content + "\" is now done.")
 
     # Telling the issuing user that we're done broadcasting
-    await client.send_message(message.channel, "Ok I'm done broadcasting :)")
+    await client.send_message(message.channel, "Ok I'm done broadcasting :smile:")
 
 
 async def cmd_admin_reload_config(message: discord.Message):
@@ -1121,9 +1121,9 @@ async def cmd_admin_reload_config(message: discord.Message):
     # Telling the issuing user that we're reloading the config
     # Checking if we're in a private channel or if we're in a regular channel so we can format our message properly
     if message.channel.is_private:
-        await client.send_message(message.channel, "Ok, I'm done reloading now :)")
+        await client.send_message(message.channel, "Ok, I'm done reloading now :smile:")
     else:
-        await client.send_message(message.channel, "Ok " + message.author.mention + ", I'm done reloading it now :)")
+        await client.send_message(message.channel, "Ok " + message.author.mention + ", I'm done reloading it now :smile:")
 
 
 async def cmd_admin_change_icon(message: discord.Message):
@@ -1261,6 +1261,11 @@ admin_commands = [dict(command="broadcast", method=cmd_admin_broadcast,
                   dict(command="change icon", method=cmd_admin_change_icon,
                        helptext="Changes the anna-bot's profile icon to an image that the user attaches to the command message.")
                   ]
+
+# We build a dict for lookup of vanity commands for a given server id
+vanity_commands = {}
+
+
 
 # The list of message ids (this list will fill and empty) that the command checker should ignore
 ignored_command_message_ids = []

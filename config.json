@@ -29,13 +29,21 @@
     "ignored_log_channels": []
   },
   "join_msg": {
-    "welcome_msg": "{0}, welcome to the {1} server! \nI'm anna-bot, @mention me to see what I can do :)",
+    "welcome_msg": "{0}, welcome to the {1} server! \nI'm anna-bot, @mention me to see what I can do :wink:",
     "server_and_channel_id_pairs": [
       [
-        SERVER ID, CHANNEL ID
+        SERVER ID, CHANNEL ID(s)
       ]
     ]
-  }
+  },
+    "leave_msg": {
+      "leave_msg": "{0} has left the {1} server! \nHope to see you again sometime!",
+      "server_and_channel_id_pairs": [
+        [
+          SERVER ID, CHANNEL ID(s)
+        ]
+      ]
+  },
     "default_role": {
     "server_and_default_role_id_pairs": []
   },

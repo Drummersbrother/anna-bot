@@ -1262,10 +1262,10 @@ admin_commands = [dict(command="broadcast", method=cmd_admin_broadcast,
                        helptext="Changes the anna-bot's profile icon to an image that the user attaches to the command message.")
                   ]
 
-# We build a dict for lookup of vanity commands for a given server id
+# The dict for lookup of vanity commands for a given server id
 vanity_commands = {}
 
-
+# We create the things in the dict
 
 # The list of message ids (this list will fill and empty) that the command checker should ignore
 ignored_command_message_ids = []

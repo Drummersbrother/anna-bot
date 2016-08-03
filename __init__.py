@@ -328,8 +328,8 @@ async def join_referral_asker(member: discord.Member):
                                           "That user does not exist on **{0}**, please try again, or ignore until the timeout")
 
             # We create a function that checks if a message is a referrer answer
-            check_response = lambda x: x.content.lower.strip().startswith("referrer: ") and len(
-                x.content.lower.strip()) > len("referrer: ")
+            check_response = lambda x: x.content.lower().strip().startswith("referrer: ") and len(
+                x.content.lower().strip()) > len("referrer: ")
 
             # We wait for a response, if we don't get one within the configured number of minutes we just exit
             response_message = await client.wait_for_message(

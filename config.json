@@ -10,7 +10,7 @@
   "start_server_cmd": {
     "start_server_allowed_channel_names_and_server_id_pairs": [
       [
-        "SERVER NAME",
+        "CHANNEL NAME",
         SERVER ID
       ]
     ],
@@ -22,8 +22,8 @@
     "messages_sent": 0,
     "commands_received": 0
   },
-  "referrals": {
-    "enabled_server_ids": [LIST OF SERVER IDS WITH REFERRALS]
+  "referral_config": {
+    "SERVER ID": {"announce_channel_id": CHANNEL ID TO ANNOUNCE WHEN SOMEONE GETS REFERRED, 0 IF NOT USED}
   },
   "log_config": {
     "ignored_log_user_names": [

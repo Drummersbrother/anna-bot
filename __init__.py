@@ -74,6 +74,9 @@ async def on_message(message: discord.Message):
                 helpers.log_info(
                     "We said: \"" + message.content + "\" in channel: \"" + message.channel.name + "\" on server \"" + message.server.name + "\".")
 
+    # Checking if the user used a command, but we first wait to make sure that the message gets ignored if necessary
+    await asyncio.sleep(0.4)
+
     # Checking if we sent the message, so we don't trigger ourselves and checking if the message should be ignored or not (such as it being a response to another command)
     if (message.author.id != client.user.id) and (message.id not in ignored_command_message_ids):
         # If a command is used with the message that was passed to the event, we know that a command has been triggered
@@ -216,6 +219,39 @@ async def on_member_join(member: discord.Member):
         "User {0:s} ({1:s}) has joined server {2:s} ({3:s}).".format(member.name, member.id, member.server.name,
                                                                      member.server.id))
 
+    # We call all the join functions, and pass them the member who joined
+    for join_function in join_functions:
+        await join_function(member)
+
+
+@client.event
+async def on_member_remove(member: discord.Member):
+    """This event is called when a member leaves a server, we use it for various features."""
+
+    # We log that a user has left the server
+    helpers.log_info(
+        "User {0:s} ({1:s}) has left server {2:s} ({3:s}).".format(member.name, member.id, member.server.name,
+                                                                   member.server.id))
+
+    # We check if the server is on the list of servers who use the leave message feature
+    if int(member.server.id) in [x[0] for x in config["leave_msg"]["server_and_channel_id_pairs"]]:
+
+        # We send a message to the specified channels in that server (you can have however many channels you want, but we check if they are on the correct server)
+        channel_ids = \
+            [x[1:] for x in config["leave_msg"]["server_and_channel_id_pairs"] if x[0] == int(member.server.id)][0]
+
+        # We loop through all the possible channels and check if they're valid
+        for channel_id in [int(x) for x in channel_ids]:
+            # We check if the channel id is on the server that the member left
+            if discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels) is not None:
+                # We send the leave message:
+                await client.send_message(discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels),
+                                          config["leave_msg"]["leave_msg"].format(member.mention, member.server.name))
+
+
+async def join_welcome_message(member: discord.Member):
+    """This function is called when a user joins a server, and welcomes them if the server has enabled the welcome message feature."""
+
     # We check if the server is on the list of servers who use the welcome message feature
     if int(member.server.id) in [x[0] for x in config["join_msg"]["server_and_channel_id_pairs"]]:
 
@@ -230,6 +266,10 @@ async def on_member_join(member: discord.Member):
                 # We send the welcome message:
                 await client.send_message(discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels),
                                           config["join_msg"]["welcome_msg"].format(member.mention, member.server.name))
+
+
+async def join_automatic_role(member: discord.Member):
+    """This function is called when a user joins a server and puts the user in a default role if the server has enabled the automatic role feature."""
 
     # We check if the user joined a server that has enabled the automatic role moving feature
     if int(member.server.id) in [x[0] for x in config["default_role"]["server_and_default_role_id_pairs"]]:
@@ -266,29 +306,156 @@ async def on_member_join(member: discord.Member):
                 await client.add_roles(member, target_role)
 
 
-@client.event
-async def on_member_remove(member: discord.Member):
-    """This event is called when a member leaves a server, we use it for various features."""
+async def join_referral_asker(member: discord.Member):
+    """This function is called when a user joins a server, and asks the user if they were invited / referred to the server by another user on the server."""
 
-    # We log that a user has left the server
-    helpers.log_info(
-        "User {0:s} ({1:s}) has left server {2:s} ({3:s}).".format(member.name, member.id, member.server.name,
-                                                                   member.server.id))
+    # We check if the server has enabled referrals
+    if str(member.server.id) in config["referral_config"]:
+        # We loop until we've got a correct answer or been ignored until the timeout
+        while True:
+            # We check if this is the first time we ask or not
+            if not retried:
+                # We PM the user and ask them who referred them (if anyone)
+                await client.send_message(member,
+                                          "Hi {0:s}! I'm a bot on **{1}**, which you just joined, and I want to know if someone referred you to **{1}**.\nIf so, please tell me within {2}, by responding with \"*referrer: <REFERRER'S USERNAME#DISCRIMINATOR>*\", *\"referrer: <REFERRER'S NICK ON {1}>\"*, or just ignore this if you weren't referred by anyone.".format(
+                                              member.name, member.server.name,
+                                              config["referral_config"]["referral_timeout_min"]))
+            else:
+                # We PM the user and ask them to try again
+                await client.send_message(member,
+                                          "That user does not exist on **{0}**, please try again, or ignore until the timeout")
 
-    # We check if the server is on the list of servers who use the leave message feature
-    if int(member.server.id) in [x[0] for x in config["leave_msg"]["server_and_channel_id_pairs"]]:
+            # We create a function that checks if a message is a referrer answer
+            check_response = lambda x: x.content.lower.strip().startswith("referrer: ") and len(
+                x.content.lower.strip()) > len("referrer: ")
 
-        # We send a message to the specified channels in that server (you can have however many channels you want, but we check if they are on the correct server)
-        channel_ids = \
-            [x[1:] for x in config["leave_msg"]["server_and_channel_id_pairs"] if x[0] == int(member.server.id)][0]
+            # We wait for a response, if we don't get one within the configured number of minutes we just exit
+            response_message = await client.wait_for_message(
+                timeout=config["referral_config"]["referral_timeout_min"] * 60, author=member,
+                channel=client.get_channel(member.id), check=check_response)
 
-        # We loop through all the possible channels and check if they're valid
-        for channel_id in [int(x) for x in channel_ids]:
-            # We check if the channel id is on the server that the member left
-            if discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels) is not None:
-                # We send the leave message:
-                await client.send_message(discord.utils.find(lambda c: int(c.id) == channel_id, member.server.channels),
-                                          config["leave_msg"]["leave_msg"].format(member.mention, member.server.name))
+            # We check if we got a response, if not, we exit
+            if response_message:
+
+                # We add the message to the "messages to ignore" list
+                ignored_command_message_ids.append(response_message.id)
+
+                # We check if the user specified in the response exists on the server that the user joined
+                referrer = member.server.get_member_named(response_message.content.strip()[len("referrer: "):])
+
+                if referrer:
+
+                    # We load the referrals file
+                    with open("referrals.json", mode="r", encoding="utf-8") as referrals_file:
+                        referrals = json.load(referrals_file)
+
+                    # We check if the server exists in the referrals data
+                    if not str(member.server.id) in referrals["servers"]:
+                        # We add the server to the servers list (in the referrals data)
+                        referrals["servers"][str(member.server.id)] = {"been_referred": {}, "have_referred": []}
+
+                    # We check if the referring user has referred before, if they have, we tell them that they have already referred and exit
+                    if not member.id in referrals["servers"][str(member.server.id)]["have_referred"]:
+
+                        # We check if we should announce that a user has been referred
+                        if config["referral_config"][str(member.server.id)]["announce_channel_id"] != 0:
+                            # We get and check that the announce channel id is valid
+                            announce_channel = client.get_channel(
+                                config["referral_config"][str(member.server.id)]["announce_channel_id"])
+
+                            if announce_channel:
+                                if announce_channel.server == member.server:
+                                    # We send the announcement that a user has been referred
+                                    await client.send_message(announce_channel,
+                                                              "{0} has been referred by {1}! :tada::tada::tada:".format(
+                                                                  referrer.mention, member.mention))
+
+                        # We check if the referrer exists in the server referrals data
+                        if not str(referrer.id) in referrals["servers"][str(member.server.id)]["been_referred"]:
+                            # We add the referrer to the server referrals data
+                            referrals["servers"][str(member.server.id)]["been_referred"][str(referrer.id)] = 1
+
+                        else:
+                            # If the user already exists in the data we just increment the number of times the user has been referred
+                            referrals["servers"][str(member.server.id)]["been_referred"][str(referrer.id)] += 1
+
+                        # We add the referred to the "have_referred" list
+                        referrals["servers"][str(member.server.id)]["have_referred"].append(member.id)
+
+                        # We log that the referred has referred the referrer
+                        helpers.log_info(
+                            "User {0} has referred user {1} to server {2}.".format(member.name, referrer.name,
+                                                                                   member.server.name))
+
+                        # We call the referral reward function and pass the referrer and the number of referrals that member now has
+                        await referral_reward_handler(referrer,
+                                                      referrals["servers"][str(member.server.id)]["been_referred"][
+                                                          str(referrer.id)])
+
+                    else:
+                        # We tell the user that they have already referred before, and then we exit
+                        await client.send_message(member,
+                                                  "You have already referred a user on {0}, and you can not do that again.".format(
+                                                      member.server.name))
+
+                    # We write the modified referrals back to the file
+                    with open("referrals.json", mode="w", encoding="utf-8") as referrals_file:
+                        json.dump(referrals, referrals_file, indent=2, sort_keys=True)
+
+                else:
+                    # The user did not exist on the server, we try again
+                    retried = True
+                    continue
+
+            else:
+                # We tell the user that the referral period has ended
+                await client.send_message(member,
+                                          "The referral timeout has been reached, you can no longer refer someone (for **{0}**, does not apply to other servers)".format(
+                                              member.server.name))
+
+            # If we haven't redone the loop by now we exit the loop
+            break
+
+
+async def referral_reward_handler(member: discord.Member, num_refs: int):
+    """This method is used to (according to the config) reward users with roles once they get a certain amount of referrals."""
+
+    # We make a list of all the roles that we need to be higher than in the role hierarchy
+    reward_roles = {int(x): discord.utils.get(member.server.roles, id=int(
+        config["referral_config"][str(member.server.id)]["referral_rewards"][x])) for x in
+                    config["referral_config"][str(member.server.id)]["referral_rewards"] if
+                    x.isdigit() and discord.utils.get(member.server.roles, id=int(
+                        config["referral_config"][str(member.server.id)]["referral_rewards"][x])) is not None}
+
+    # We store the highest hierarchy position of the reward roles
+    max_reward_role_position = max([reward_roles[x].position for x in reward_roles])
+
+    # We check if we have the proper permissions to add and remove all the roles that can be gotten from referrals
+    if (member.server.me.top_role.position > member.top_role.position) and (
+                member.server.me.top_role.position > max_reward_role_position):
+
+        # We check if we have the manage roles permission
+        if member.server.me.permissions_in(member.server.default_channel).manage_roles:
+
+            # We have all the permissions we need, so we get the role for the current referral level. If there isn't a reward for the current referral level, we exit, as we know that we have already given the user the reward
+            if num_refs in reward_roles:
+                current_reward_role = reward_roles[num_refs]
+
+                # We log that we're going to move a user to a higher level reward role
+                helpers.log_info(
+                    "Moving user {0} to role {1} on server {2} because user reached {3} referrals.".format(member.name,
+                                                                                                           current_reward_role.name,
+                                                                                                           member.server.name,
+                                                                                                           num_refs))
+
+                # We make a list of all the reward roles under the current level so we can remove them. We can't just remove the previous role here, as the timespans for referrals may be quite large, and the config may therefore have changed in ways that require us to use all previous roles.
+                prev_reward_roles = [x for i, x in reward_roles if i < num_refs and x in member.roles]
+
+                # We remove all the previous roles
+                await client.remove_roles(member, *prev_reward_roles)
+
+                # We add the current reward level's role
+                await client.add_roles(member, current_reward_role)
 
 
 async def cmd_invite_link(message: discord.Message):
@@ -1123,7 +1290,8 @@ async def cmd_admin_reload_config(message: discord.Message):
     if message.channel.is_private:
         await client.send_message(message.channel, "Ok, I'm done reloading now :smile:")
     else:
-        await client.send_message(message.channel, "Ok " + message.author.mention + ", I'm done reloading it now :smile:")
+        await client.send_message(message.channel,
+                                  "Ok " + message.author.mention + ", I'm done reloading it now :smile:")
 
 
 async def cmd_admin_change_icon(message: discord.Message):
@@ -1261,6 +1429,9 @@ admin_commands = [dict(command="broadcast", method=cmd_admin_broadcast,
                   dict(command="change icon", method=cmd_admin_change_icon,
                        helptext="Changes the anna-bot's profile icon to an image that the user attaches to the command message.")
                   ]
+
+# The functions to call when someone joins the server, these get passed the member object of the user who joined
+join_functions = [join_referral_asker, join_welcome_message, join_automatic_role]
 
 # The dict for lookup of vanity commands for a given server id
 vanity_commands = {}

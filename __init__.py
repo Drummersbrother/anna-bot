@@ -311,6 +311,8 @@ async def join_referral_asker(member: discord.Member):
 
     # We check if the server has enabled referrals
     if str(member.server.id) in config["referral_config"]:
+        retried = False
+
         # We loop until we've got a correct answer or been ignored until the timeout
         while True:
             # We check if this is the first time we ask or not
@@ -319,7 +321,7 @@ async def join_referral_asker(member: discord.Member):
                 await client.send_message(member,
                                           "Hi {0:s}! I'm a bot on **{1}**, which you just joined, and I want to know if someone referred you to **{1}**.\nIf so, please tell me within {2}, by responding with \"*referrer: <REFERRER'S USERNAME#DISCRIMINATOR>*\", *\"referrer: <REFERRER'S NICK ON {1}>\"*, or just ignore this if you weren't referred by anyone.".format(
                                               member.name, member.server.name,
-                                              config["referral_config"]["referral_timeout_min"]))
+                                              config["referral_config"][str(member.server.id)]["referral_timeout_min"]))
             else:
                 # We PM the user and ask them to try again
                 await client.send_message(member,

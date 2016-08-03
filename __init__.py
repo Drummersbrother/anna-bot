@@ -366,8 +366,8 @@ async def join_referral_asker(member: discord.Member):
                             announce_channel = client.get_channel(
                                 config["referral_config"][str(member.server.id)]["announce_channel_id"])
 
-                            if announce_channel:
-                                if announce_channel.server == member.server:
+                            if announce_channel is not None:
+                                if announce_channel.server.id == member.server.id:
                                     # We send the announcement that a user has been referred
                                     await client.send_message(announce_channel,
                                                               "{0} has been referred by {1}! :tada::tada::tada:".format(
@@ -389,6 +389,9 @@ async def join_referral_asker(member: discord.Member):
                         helpers.log_info(
                             "User {0} has referred user {1} to server {2}.".format(member.name, referrer.name,
                                                                                    member.server.name))
+
+                        # We tell the user that their referral has been registered
+                        await client.send_message(member, "Ok, your referral has been registered.")
 
                         # We call the referral reward function and pass the referrer and the number of referrals that member now has
                         await referral_reward_handler(referrer,

@@ -325,7 +325,8 @@ async def join_referral_asker(member: discord.Member):
             else:
                 # We PM the user and ask them to try again
                 await client.send_message(member,
-                                          "That user does not exist on **{0}**, please try again, or ignore until the timeout")
+                                          "That user does not exist on **{0}**, please try again, or ignore until the timeout".format(
+                                              member.server.name))
 
             # We create a function that checks if a message is a referrer answer
             check_response = lambda x: x.content.lower().strip().startswith("referrer: ") and len(
@@ -429,35 +430,38 @@ async def referral_reward_handler(member: discord.Member, num_refs: int):
                     x.isdigit() and discord.utils.get(member.server.roles, id=int(
                         config["referral_config"][str(member.server.id)]["referral_rewards"][x])) is not None}
 
-    # We store the highest hierarchy position of the reward roles
-    max_reward_role_position = max([reward_roles[x].position for x in reward_roles])
+    # We check if there are any reward roles at all
+    if len(reward_roles) > 0:
+        # We store the highest hierarchy position of the reward roles
+        max_reward_role_position = max([reward_roles[x].position for x in reward_roles])
 
-    # We check if we have the proper permissions to add and remove all the roles that can be gotten from referrals
-    if (member.server.me.top_role.position > member.top_role.position) and (
-                member.server.me.top_role.position > max_reward_role_position):
+        # We check if we have the proper permissions to add and remove all the roles that can be gotten from referrals
+        if (member.server.me.top_role.position > member.top_role.position) and (
+                    member.server.me.top_role.position > max_reward_role_position):
 
-        # We check if we have the manage roles permission
-        if member.server.me.permissions_in(member.server.default_channel).manage_roles:
+            # We check if we have the manage roles permission
+            if member.server.me.permissions_in(member.server.default_channel).manage_roles:
 
-            # We have all the permissions we need, so we get the role for the current referral level. If there isn't a reward for the current referral level, we exit, as we know that we have already given the user the reward
-            if num_refs in reward_roles:
-                current_reward_role = reward_roles[num_refs]
+                # We have all the permissions we need, so we get the role for the current referral level. If there isn't a reward for the current referral level, we exit, as we know that we have already given the user the reward
+                if num_refs in reward_roles:
+                    current_reward_role = reward_roles[num_refs]
 
-                # We log that we're going to move a user to a higher level reward role
-                helpers.log_info(
-                    "Moving user {0} to role {1} on server {2} because user reached {3} referrals.".format(member.name,
-                                                                                                           current_reward_role.name,
-                                                                                                           member.server.name,
-                                                                                                           num_refs))
+                    # We log that we're going to move a user to a higher level reward role
+                    helpers.log_info(
+                        "Moving user {0} to role {1} on server {2} because user reached {3} referrals.".format(
+                            member.name,
+                            current_reward_role.name,
+                            member.server.name,
+                            num_refs))
 
-                # We make a list of all the reward roles under the current level so we can remove them. We can't just remove the previous role here, as the timespans for referrals may be quite large, and the config may therefore have changed in ways that require us to use all previous roles.
-                prev_reward_roles = [x for i, x in reward_roles if i < num_refs and x in member.roles]
+                    # We make a list of all the reward roles under the current level so we can remove them. We can't just remove the previous role here, as the timespans for referrals may be quite large, and the config may therefore have changed in ways that require us to use all previous roles.
+                    prev_reward_roles = [x for i, x in reward_roles if i < num_refs and x in member.roles]
 
-                # We remove all the previous roles
-                await client.remove_roles(member, *prev_reward_roles)
+                    # We remove all the previous roles
+                    await client.remove_roles(member, *prev_reward_roles)
 
-                # We add the current reward level's role
-                await client.add_roles(member, current_reward_role)
+                    # We add the current reward level's role
+                    await client.add_roles(member, current_reward_role)
 
 
 async def cmd_invite_link(message: discord.Message):

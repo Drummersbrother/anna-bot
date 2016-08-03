@@ -311,6 +311,8 @@ async def join_referral_asker(member: discord.Member):
 
     # We check if the server has enabled referrals
     if str(member.server.id) in config["referral_config"]:
+        retried = False
+
         # We loop until we've got a correct answer or been ignored until the timeout
         while True:
             # We check if this is the first time we ask or not

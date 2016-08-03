@@ -22,6 +22,9 @@
     "messages_sent": 0,
     "commands_received": 0
   },
+  "referrals": {
+    "enabled_server_ids": [LIST OF SERVER IDS WITH REFERRALS]
+  },
   "log_config": {
     "ignored_log_user_names": [
       "USERNAMES TO IGNORE WHEN LOGGING"

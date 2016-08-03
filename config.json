@@ -25,7 +25,12 @@
   "referral_config": {
     "SERVER ID": {
       "announce_channel_id": CHANNEL ID TO ANNOUNCE WHEN SOMEONE GETS REFERRED, 0 IF NOT USED, 
-      "referral_timeout_min": NUMBER OF MINUTES TO ANSWER WITH REFERRER UNTIL IT TIMEOUTS
+      "referral_timeout_min": NUMBER OF MINUTES TO ANSWER WITH REFERRER UNTIL IT TIMEOUTS,
+      "referral_rewards": {
+        NUM REFS UNTIL REWARD 1: ROLE ID FOR REWARD 1 ROLE,
+        NUM REFS UNTIL REWARD 2: ROLE ID FOR REWARD 2 ROLE,
+        ...
+      }
     }
   },
   "log_config": {

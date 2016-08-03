@@ -319,7 +319,7 @@ async def join_referral_asker(member: discord.Member):
             if not retried:
                 # We PM the user and ask them who referred them (if anyone)
                 await client.send_message(member,
-                                          "Hi {0:s}! I'm a bot on **{1}**, which you just joined, and I want to know if someone referred you to **{1}**.\nIf so, please tell me within {2}, by responding with \"*referrer: <REFERRER'S USERNAME#DISCRIMINATOR>*\", *\"referrer: <REFERRER'S NICK ON {1}>\"*, or just ignore this if you weren't referred by anyone.".format(
+                                          "Hi {0:s}! I'm a bot on **{1}**, which you just joined, and I want to know if someone referred you to **{1}**.\nIf so, please tell me within {2} minutes, by responding with \"*referrer: <REFERRER'S USERNAME#DISCRIMINATOR>*\", *\"referrer: <REFERRER'S NICK ON {1}>\"*, or just ignore this if you weren't referred by anyone.".format(
                                               member.name, member.server.name,
                                               config["referral_config"][str(member.server.id)]["referral_timeout_min"]))
             else:
@@ -333,7 +333,7 @@ async def join_referral_asker(member: discord.Member):
 
             # We wait for a response, if we don't get one within the configured number of minutes we just exit
             response_message = await client.wait_for_message(
-                timeout=config["referral_config"]["referral_timeout_min"] * 60, author=member,
+                timeout=config["referral_config"][str(member.server.id)]["referral_timeout_min"] * 60, author=member,
                 channel=client.get_channel(member.id), check=check_response)
 
             # We check if we got a response, if not, we exit

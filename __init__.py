@@ -12,6 +12,8 @@ import helpers
 client = discord.Client(cache_auth=False)
 
 
+# TODO Handle group calls and messages, and/or move to the commands extension
+
 @client.event
 async def on_message(message: discord.Message):
     # We wait for a split second so we can be assured that ignoring of messages and other things have finished before the message is processed here
@@ -1440,12 +1442,14 @@ admin_commands = [dict(command="broadcast", method=cmd_admin_broadcast,
                   ]
 
 # The functions to call when someone joins the server, these get passed the member object of the user who joined
-join_functions = [join_welcome_message, join_automatic_role, join_referral_asker]
+join_functions = [join_welcome_message,
+                  join_automatic_role,
+                  join_referral_asker]
 
 # The dict for lookup of vanity commands for a given server id
 vanity_commands = {}
 
-# We create the things in the dict
+# We create the things in the dict TODO
 
 # The list of message ids (this list will fill and empty) that the command checker should ignore
 ignored_command_message_ids = []

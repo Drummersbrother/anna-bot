@@ -1,5 +1,5 @@
 import json
-import logging
+import logging.handlers
 
 # Setting up logging with the built in discord.py logger
 logger = logging.getLogger('discord')
@@ -13,6 +13,28 @@ with open("config.json", mode="r", encoding="utf-8") as config_file:
 # Continuing the logger setup
 handler.setFormatter(logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s'))
 logger.addHandler(handler)
+
+# We check if the user wants to use email to report errors
+if config["log_config"]["use_email_notifications"]:
+    # We create the SMTP loghandler with the proper settings from the config
+    mail_notification_handler = logging.handlers.SMTPHandler((config["log_config"]["email_settings"]["smtp_server"],
+                                                              config["log_config"]["email_settings"][
+                                                                  "smtp_port"]),
+                                                             config["log_config"]["email_settings"]["from_address"],
+                                                             config["log_config"]["email_settings"]["send_to"],
+                                                             config["log_config"]["email_settings"]["subject"],
+                                                             credentials=(
+                                                             config["log_config"]["email_settings"]["username"],
+                                                             config["log_config"]["email_settings"]["password"]),
+                                                             secure=())
+
+    # We change the level so it only sends emails about warnings or errors
+    mail_notification_handler.setLevel(logging.WARNING)
+    # We change the formatter to the formatter we use in the file handler
+    mail_notification_handler.setFormatter(handler.formatter)
+
+    # We add the mail handler to the logger
+    logger.addHandler(mail_notification_handler)
 
 
 def get_formatted_duration_fromtime(duration_seconds_noformat):

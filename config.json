@@ -37,7 +37,16 @@
     "ignored_log_user_names": [
       "USERNAMES TO IGNORE WHEN LOGGING"
     ],
-    "ignored_log_channels": []
+    "ignored_log_channels": [],
+    "use_email_notifications": false,
+    "email_settings": {
+      "smtp_server": "",
+      "username": "",
+      "password": "",
+      "send_to": [""],
+      "from_address": "",
+      "subject": ""
+    }
   },
   "join_msg": {
     "welcome_msg": "{0}, welcome to the {1} server! \nI'm anna-bot, @mention me to see what I can do :wink:",

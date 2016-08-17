@@ -1244,6 +1244,10 @@ async def cmd_list_ids(message: discord.Message):
 async def cmd_list_vanity_roles(message: discord.Message):
     """This method is used to list all available vanity roles on a server."""
 
+    # We check if we should fill the vanity commands dict
+    if vanity_commands == -1:
+        await update_vanity_dictionary()
+
     # We check if the command was issued in a PM and if the server where the command was issued has any vanity roles
     if message.channel.is_private:
         # We tell the user that vanity roles do not exist in PMs
@@ -1287,6 +1291,10 @@ async def cmd_list_vanity_roles(message: discord.Message):
 
 async def cmd_change_vanity_role(message: discord.Message):
     """This function is used to change or add a user to a vanity role of their choosing."""
+
+    # We check if we should fill the vanity commands dict
+    if vanity_commands == -1:
+        await update_vanity_dictionary()
 
     # We check if the command was issued in a PM and if the server where the command was issued has any vanity roles
     if message.channel.is_private:
@@ -1416,7 +1424,7 @@ async def cmd_admin_reload_config(message: discord.Message):
     helpers.log_info("Updating vanity commands...")
 
     # Updating the vanity command dict because the config file could have changed the vanity setup
-    vanity_commands = update_vanity_dictionary()
+    await update_vanity_dictionary()
 
     # Logging that we're done updating the vanity commands
     helpers.log_info("Done updating vanity commands")
@@ -1500,6 +1508,7 @@ async def cmd_admin_list_referrals(message: discord.Message):
         # We send the file
         await client.send_file(message.author, referrals_file, content="Here you go!")
 
+
 def is_message_command(message: discord.Message):
     """This function is used to check whether a message is trying to issue an anna-bot command"""
 
@@ -1530,37 +1539,43 @@ def remove_anna_mention(message: discord.Message):
     return cleaned_message
 
 
-def update_vanity_dictionary():
+async def update_vanity_dictionary():
     """This function uses the config to create a dictionary for the role command, which makes it possible to change roles to a predetermined list of roles."""
 
+    # We wait until the client is logged in
+    await client.wait_until_ready()
+
+    # The lookup dictionary for vanity commands
     vanity_dict = {}
 
     # We fill the dict with the commands that are enabled
     for server_id in config["vanity_role_commands"]["server_ids_and_roles"]:
         # This is the dict for the current server, which we will fill with command/role name, to role id mappings
-        vanity_commands[server_id] = {}
+        vanity_dict[server_id] = {}
 
         # We get the server object and a list of the role ids the server has
         server = client.get_server(server_id)
-        server_role_ids = [x.id for x in server.roles]
 
-        # We loop through all the commands
-        for role_name in config["vanity_role_commands"]["server_ids_and_roles"][server_id]:
-            # We check if the role id exists on the specified server
-            if str(config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name]) in server_role_ids:
-                # It exists, so we add it to the dictionary
-                vanity_commands[server_id][role_name.lower().strip()] = \
-                    config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name]
+        if server is not None:
+            server_role_ids = [x.id for x in server.roles]
 
-            else:
-                # The role does not exist, so we tell the user to fix their config
-                helpers.log_warning(
-                    "Vanity command \"{0:s}\", could not be created as role with id {1:d} does not exist on server {2:s}.".format(
-                        role_name, config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name],
-                        server.name))
+            # We loop through all the commands
+            for role_name in config["vanity_role_commands"]["server_ids_and_roles"][server_id]:
+                # We check if the role id exists on the specified server
+                if str(config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name]) in server_role_ids:
+                    # It exists, so we add it to the dictionary
+                    vanity_dict[server_id][role_name.lower().strip()] = \
+                        config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name]
 
-    return vanity_dict
+                else:
+                    # The role does not exist, so we tell the user to fix their config
+                    helpers.log_warning(
+                        "Vanity command \"{0:s}\", could not be created as role with id {1:d} does not exist on server {2:s}.".format(
+                            role_name, config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name],
+                            server.name))
 
+    global vanity_commands
+    vanity_commands = vanity_dict
 
 # Logging that we're loading the config
 helpers.log_info("Loading the config file...")
@@ -1626,8 +1641,8 @@ join_functions = [join_welcome_message,
 # Logging that we're creating th vanity commands
 helpers.log_info("Creating vanity commands...")
 
-# We define (using the update function) the vanity command dictionary
-vanity_commands = update_vanity_dictionary()
+# We define the vanity command dictionary, this will be filled with information the first time a user uses a vanity command or if an admin uses the reload config command
+vanity_commands = -1
 
 # Logging that we're done creating the vanity commands
 helpers.log_info("Done creating vanity commands")

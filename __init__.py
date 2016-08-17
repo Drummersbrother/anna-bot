@@ -1500,6 +1500,7 @@ async def cmd_admin_list_referrals(message: discord.Message):
         # We send the file
         await client.send_file(message.author, referrals_file, content="Here you go!")
 
+
 def is_message_command(message: discord.Message):
     """This function is used to check whether a message is trying to issue an anna-bot command"""
 
@@ -1538,7 +1539,7 @@ def update_vanity_dictionary():
     # We fill the dict with the commands that are enabled
     for server_id in config["vanity_role_commands"]["server_ids_and_roles"]:
         # This is the dict for the current server, which we will fill with command/role name, to role id mappings
-        vanity_commands[server_id] = {}
+        vanity_dict[server_id] = {}
 
         # We get the server object and a list of the role ids the server has
         server = client.get_server(server_id)
@@ -1549,7 +1550,7 @@ def update_vanity_dictionary():
             # We check if the role id exists on the specified server
             if str(config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name]) in server_role_ids:
                 # It exists, so we add it to the dictionary
-                vanity_commands[server_id][role_name.lower().strip()] = \
+                vanity_dict[server_id][role_name.lower().strip()] = \
                     config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name]
 
             else:

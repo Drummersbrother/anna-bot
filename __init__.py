@@ -1335,9 +1335,14 @@ async def cmd_change_vanity_role(message: discord.Message):
             requested_role = discord.utils.find(
                 lambda r: r.id == str(vanity_commands[message.server.id][clean_message_content]), message.server.roles)
 
-            # We try to remove all vanity roles for this server from the user
-            await client.remove_roles(message.author, *[x for x in message.server.roles if (
-                int(x.id) in vanity_commands[message.server.id].values() and x.id != requested_role.id)])
+            # We remove the vanity roles a user has. We do this multiple times or until the user no longer has any vanity roles (as doing it once is not reliable)
+            for _ in range(5):
+                # We remove one role at a time
+                for role in [x for x in message.server.roles if
+                             (int(x.id) in vanity_commands[message.server.id].values())]:
+                    await client.remove_roles(message.author, role)
+
+                await asyncio.sleep(0.1)
 
             # We log that we've given the user the role
             helpers.log_info(
@@ -1394,9 +1399,14 @@ async def cmd_remove_vanity_roles(message: discord.Message):
         # We check if we are higher in the hierarchy than the issuing user
         if message.server.me.top_role.position > message.author.top_role.position:
 
-            # We try to remove all vanity roles for this server from the user
-            await client.remove_roles(message.author, *[x for x in message.server.roles if (
-                int(x.id) in vanity_commands[message.server.id].values())])
+            # We remove the vanity roles a user has. We do this multiple times or until the user no longer has any vanity roles (as doing it once is not reliable)
+            for _ in range(5):
+                # We remove one role at a time
+                for role in [x for x in message.server.roles if
+                             (int(x.id) in vanity_commands[message.server.id].values() and x in message.author.roles)]:
+                    await client.remove_roles(message.author, role)
+
+                await asyncio.sleep(0.1)
 
             # We tell the user that we've removed their vanity role
             await client.send_message(message.channel,

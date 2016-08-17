@@ -69,14 +69,12 @@
     "server_and_default_role_id_pairs": []
   },
   "vanity_role_commands": {
-    "server_id_and_command_role_id_pairs": [
-        [
-          SERVER ID,
-          [
-            "ROLE COMMAND", ROLE ID  
-          ]
-        ]
-      ]
+    "server_ids_and_roles": {
+          "SERVER ID" : 
+          {
+            "ROLE COMMAND" : ROLE ID  
+          }
+    }
   },
   "logging": {
     "log_file_name": "discord.log"

@@ -1543,22 +1543,24 @@ def update_vanity_dictionary():
 
         # We get the server object and a list of the role ids the server has
         server = client.get_server(server_id)
-        server_role_ids = [x.id for x in server.roles]
+        # We check that the server exists
+        if server is not None:
+            server_role_ids = [x.id for x in server.roles]
 
-        # We loop through all the commands
-        for role_name in config["vanity_role_commands"]["server_ids_and_roles"][server_id]:
-            # We check if the role id exists on the specified server
-            if str(config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name]) in server_role_ids:
-                # It exists, so we add it to the dictionary
-                vanity_dict[server_id][role_name.lower().strip()] = \
-                    config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name]
+            # We loop through all the commands
+            for role_name in config["vanity_role_commands"]["server_ids_and_roles"][server_id]:
+                # We check if the role id exists on the specified server
+                if str(config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name]) in server_role_ids:
+                    # It exists, so we add it to the dictionary
+                    vanity_dict[server_id][role_name.lower().strip()] = \
+                        config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name]
 
-            else:
-                # The role does not exist, so we tell the user to fix their config
-                helpers.log_warning(
-                    "Vanity command \"{0:s}\", could not be created as role with id {1:d} does not exist on server {2:s}.".format(
-                        role_name, config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name],
-                        server.name))
+                else:
+                    # The role does not exist, so we tell the user to fix their config
+                    helpers.log_warning(
+                        "Vanity command \"{0:s}\", could not be created as role with id {1:d} does not exist on server {2:s}.".format(
+                            role_name, config["vanity_role_commands"]["server_ids_and_roles"][server_id][role_name],
+                            server.name))
 
     return vanity_dict
 

@@ -1310,7 +1310,7 @@ async def cmd_change_vanity_role(message: discord.Message):
         return
 
     # We remove the anna-bot mention and parse the role that the user wants to change to
-    clean_message_content = remove_anna_mention(message)[len(" role change "):].lower().strip()
+    clean_message_content = remove_anna_mention(message)[len("role change "):].lower().strip()
 
     # We check if the role exists in the vanity command dictionary, if it doesn't we tell the user and return
     if not clean_message_content in vanity_commands[message.server.id]:
@@ -1328,28 +1328,94 @@ async def cmd_change_vanity_role(message: discord.Message):
     # We surround all this with a try except, to safeguard against permission errors
     try:
 
-        # The role the user requested
-        requested_role = discord.utils.find(
-            lambda r: r.id == str(vanity_commands[message.server.id][clean_message_content]), message.server.roles)
+        # We check if we are higher in the hierarchy than the issuing user
+        if message.server.me.top_role.position > message.author.top_role.position:
 
-        # We try to remove all vanity roles for this server from the user
-        await client.remove_roles(message.author, [x for x in message.server.roles if (
-            int(x.id) in vanity_commands[message.server.id].values() and x.id != requested_role.id)])
+            # The role the user requested
+            requested_role = discord.utils.find(
+                lambda r: r.id == str(vanity_commands[message.server.id][clean_message_content]), message.server.roles)
 
-        # We log that we've given the user the role
-        helpers.log_info(
-            "Giving {0} ({1}), now has the role {2} ({3}) on server {4} (5), because they used the corresponding vanity command.".format(
-                message.author.name, message.author.id, requested_role.name, requested_role.id, message.server.name,
-                message.server.id))
-        # We try to add the requested role to the user
-        await client.add_roles(message.author, requested_role)
+            # We try to remove all vanity roles for this server from the user
+            await client.remove_roles(message.author, *[x for x in message.server.roles if (
+                int(x.id) in vanity_commands[message.server.id].values() and x.id != requested_role.id)])
 
-        # We tell the user that we've given them the vanity role
-        await client.send_message(message.channel,
-                                  message.author.mention + ", you now have the vanity role **{0}**".format(
-                                      clean_message_content))
+            # We log that we've given the user the role
+            helpers.log_info(
+                "Giving {0} ({1}), now has the role {2} ({3}) on server {4} (5), because they used the corresponding vanity command.".format(
+                    message.author.name, message.author.id, requested_role.name, requested_role.id, message.server.name,
+                    message.server.id))
+            # We try to add the requested role to the user
+            await client.add_roles(message.author, requested_role)
+
+            # We tell the user that we've given them the vanity role
+            await client.send_message(message.channel,
+                                      message.author.mention + ", you now have the vanity role **{0}**".format(
+                                          clean_message_content))
+        else:
+            # We go to the except clause
+            raise PermissionError
 
     except discord.Forbidden as e:
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I do not have permission to give or remove roles for you, and I can therefore not give you a vanity role.")
+        helpers.log_info("Could not perform role operations on user {0} ({1}) because of too low permissions.".format(
+            message.author.name, message.author.id))
+
+    except PermissionError as e:
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I do not have permission to give or remove roles for you, and I can therefore not give you a vanity role.")
+        helpers.log_info("Could not perform role operations on user {0} ({1}) because of too low permissions.".format(
+            message.author.name, message.author.id))
+
+
+async def cmd_remove_vanity_roles(message: discord.Message):
+    """This function is used to remove all vanity roles fort a server from a user."""
+
+    # We check if we should fill the vanity commands dict
+    if vanity_commands == -1:
+        await update_vanity_dictionary()
+
+    # We check if the command was issued in a PM and if the server where the command was issued has any vanity roles
+    if message.channel.is_private:
+        # We tell the user that vanity roles do not exist in PMs
+        await client.send_message(message.channel,
+                                  "Vanity roles do not apply in PMs. Please use this command on a server that has enabled vanity roles.")
+
+        return
+    elif vanity_commands.get(message.server.id, {}) == {}:
+        # We tell the user that the server doesn't have any vanity roles
+        await client.send_message(message.channel, "This server does not have any vanity roles.")
+
+        return
+
+    # We check if we have permission to remove roles from this user
+    # We surround all this with a try except, to safeguard against permission errors
+    try:
+        # We check if we are higher in the hierarchy than the issuing user
+        if message.server.me.top_role.position > message.author.top_role.position:
+
+            # We try to remove all vanity roles for this server from the user
+            await client.remove_roles(message.author, *[x for x in message.server.roles if (
+                int(x.id) in vanity_commands[message.server.id].values())])
+
+            # We tell the user that we've removed their vanity role
+            await client.send_message(message.channel,
+                                      message.author.mention + ", I've now removed all vanity roles from you :D")
+
+        else:
+
+            # We go to the except clause
+            raise PermissionError
+
+    except discord.Forbidden as e:
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I do not have permission to give or remove roles for you, and I can therefore not give you a vanity role.")
+
+        helpers.log_info(
+            "Could not perform role operations on user {0} ({1}) because of too low permissions.".format(
+                message.author.name, message.author.id))
+
+    except PermissionError as e:
         await client.send_message(message.channel,
                                   message.author.mention + ", I do not have permission to give or remove roles for you, and I can therefore not give you a vanity role.")
         helpers.log_info("Could not perform role operations on user {0} ({1}) because of too low permissions.".format(
@@ -1577,6 +1643,7 @@ async def update_vanity_dictionary():
     global vanity_commands
     vanity_commands = vanity_dict
 
+
 # Logging that we're loading the config
 helpers.log_info("Loading the config file...")
 
@@ -1616,6 +1683,8 @@ public_commands = [dict(command="invite", method=cmd_invite_link,
                         helptext="PMs you with a list of all the ids of all the things on the server. This includes roles, users, channels, and the server itself."),
                    dict(command="role change", method=cmd_change_vanity_role,
                         helptext="Use this to change to another vanity role (**role list** to list all available roles)."),
+                   dict(command="role remove", method=cmd_remove_vanity_roles,
+                        helptext="Use this to remove all your vanity roles."),
                    dict(command="role list", method=cmd_list_vanity_roles,
                         helptext="PMs you with a list of all available roles for this server."),
                    dict(command="whoru", method=cmd_who_r_u,

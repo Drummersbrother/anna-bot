@@ -1335,18 +1335,16 @@ async def cmd_change_vanity_role(message: discord.Message):
             requested_role = discord.utils.find(
                 lambda r: r.id == str(vanity_commands[message.server.id][clean_message_content]), message.server.roles)
 
-            # We remove the vanity roles a user has. We do this multiple times or until the user no longer has any vanity roles (as doing it once is not reliable)
-            for _ in range(5):
-                # We remove one role at a time
-                for role in [x for x in message.server.roles if
-                             (int(x.id) in vanity_commands[message.server.id].values())]:
-                    await client.remove_roles(message.author, role)
+            # We create a list of all the vanity roles
+            vanity_roles = [x for x in message.server.roles if
+                            (int(x.id) in vanity_commands[message.server.id].values() and x in message.author.roles)]
 
-                await asyncio.sleep(0.1)
+            # We remove the vanity roles
+            await remove_roles(message.author, vanity_roles)
 
             # We log that we've given the user the role
             helpers.log_info(
-                "Giving {0} ({1}), now has the role {2} ({3}) on server {4} (5), because they used the corresponding vanity command.".format(
+                "Giving {0} ({1}), now has the role {2} ({3}) on server {4} ({5}), because they used the corresponding vanity command.".format(
                     message.author.name, message.author.id, requested_role.name, requested_role.id, message.server.name,
                     message.server.id))
             # We try to add the requested role to the user
@@ -1399,14 +1397,12 @@ async def cmd_remove_vanity_roles(message: discord.Message):
         # We check if we are higher in the hierarchy than the issuing user
         if message.server.me.top_role.position > message.author.top_role.position:
 
-            # We remove the vanity roles a user has. We do this multiple times or until the user no longer has any vanity roles (as doing it once is not reliable)
-            for _ in range(5):
-                # We remove one role at a time
-                for role in [x for x in message.server.roles if
-                             (int(x.id) in vanity_commands[message.server.id].values() and x in message.author.roles)]:
-                    await client.remove_roles(message.author, role)
+            # We create a list of all the vanity roles
+            vanity_roles = [x for x in message.server.roles if
+                            (int(x.id) in vanity_commands[message.server.id].values() and x in message.author.roles)]
 
-                await asyncio.sleep(0.1)
+            # We remove the vanity roles
+            await remove_roles(message.author, vanity_roles)
 
             # We tell the user that we've removed their vanity role
             await client.send_message(message.channel,
@@ -1485,6 +1481,7 @@ async def cmd_admin_reload_config(message: discord.Message):
 
     # Loading the config file and then parsing it as json and storing it in a python object
     with open("config.json", mode="r", encoding="utf-8") as config_file:
+        global config
         config = json.load(config_file)
 
     # Logging that we're done loading the config
@@ -1615,6 +1612,40 @@ def remove_anna_mention(message: discord.Message):
     return cleaned_message
 
 
+async def remove_roles(member: discord.Member, roles: list):
+    """This function is used to remove all roles from a list from a user until the user does not have any of those roles, or the max retries have been attempted.
+    This raises Forbidden if the client does not have permissions to remove roles from the target user.
+    May also raise HTTPException if the network operations failed."""
+
+    # We basically work with the assumption that local membership operations are a lot faster than discord network operations
+
+    # The duration to wait between each batch of role removals
+    role_removal_cooldown = 0.1
+
+    # We remove the roles a user has. We do this multiple times or until the user no longer has any of the roles (as doing it once is not reliable)
+    for i in range(5):
+
+        # We check if the user has any of the roles (just so we don't need to issue a network operation)
+        # We check if the two lists (the member's roles and the removal roles) share any elements
+        if any(x in max(roles, member.roles, key=len) for x in
+               min(roles, member.roles, key=len)):
+            # We remove all the roles from the user
+            for role in [x for x in roles if x in member.roles]:
+                await client.remove_roles(member, role)
+
+            # We wait so we don't get rate limited, and so we have time to receive the updated member
+            await asyncio.sleep(role_removal_cooldown)
+
+        else:
+            # We have removed all the roles
+            i -= 1
+            break
+
+    # We log how many retries it took to remove the roles from the user
+    helpers.log_info(
+        "Removing roles from user {0} ({1}) took {2} retries.".format(member.name, member.id, i))
+
+
 async def update_vanity_dictionary():
     """This function uses the config to create a dictionary for the role command, which makes it possible to change roles to a predetermined list of roles."""
 
@@ -1717,14 +1748,8 @@ join_functions = [join_welcome_message,
                   join_automatic_role,
                   join_referral_asker]
 
-# Logging that we're creating th vanity commands
-helpers.log_info("Creating vanity commands...")
-
 # We define the vanity command dictionary, this will be filled with information the first time a user uses a vanity command or if an admin uses the reload config command
 vanity_commands = -1
-
-# Logging that we're done creating the vanity commands
-helpers.log_info("Done creating vanity commands")
 
 # The list of message ids (this list will fill and empty) that the command checker should ignore
 ignored_command_message_ids = []

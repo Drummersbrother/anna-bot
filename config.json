@@ -23,8 +23,7 @@
     "commands_received": 0
   },
   "warning_roles" : {
-  server id: 
-    {
+    "server id": {
       roles_that_can_warn: [ROLE IDS...], 
         number_warnings: NUMBER OF WARNINGS UNTIL ACTION, 
         warning_role_ids: [ROLE IDS...], 

@@ -22,6 +22,15 @@
     "messages_sent": 0,
     "commands_received": 0
   },
+  "warning_roles" : {
+  server id: 
+    {
+      roles_that_can_warn: [ROLE IDS...], 
+        number_warnings: NUMBER OF WARNINGS UNTIL ACTION, 
+        warning_role_ids: [ROLE IDS...], 
+        ban_after_warnings: TRUE IF PEOPLE SHOULD GET BANNED AFTER LAST WARNING, OTHERWISE KICK
+    }
+  },
   "referral_config": {
     "SERVER ID": {
       "announce_channel_id": CHANNEL ID TO ANNOUNCE WHEN SOMEONE GETS REFERRED, 0 IF NOT USED, 

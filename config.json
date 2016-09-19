@@ -24,8 +24,7 @@
   },
   "warning_roles" : {
     "server id": {
-      roles_that_can_warn: [ROLE IDS...], 
-        number_warnings: NUMBER OF WARNINGS UNTIL ACTION, 
+        roles_that_can_warn: [ROLE IDS...], 
         warning_role_ids: [ROLE IDS...], 
         ban_after_warnings: TRUE IF PEOPLE SHOULD GET BANNED AFTER LAST WARNING, OTHERWISE KICK
     }

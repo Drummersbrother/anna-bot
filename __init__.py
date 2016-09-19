@@ -1480,8 +1480,8 @@ async def cmd_add_warning(message: discord.Message):
     # Telling the user and logging that we're warning someone
     await client.send_message(message.channel, message.author.mention + " ok, warning " + target_user.mention + ".")
     helpers.log_info(
-        "User {0} is added a warning to user {1} on server {2}".format(log_ob(message.author), log_ob(target_user),
-                                                                       log_ob(message.server)))
+        "User {0} is adding a warning to user {1} on server {2}".format(log_ob(message.author), log_ob(target_user),
+                                                                        log_ob(message.server)))
 
     # We check what warning the target user is on
     target_user_warning_level = -1
@@ -1500,10 +1500,58 @@ async def cmd_add_warning(message: discord.Message):
         warning_role_list[warning_level] = discord.utils.get(message.server.roles, id=str(warning_role_id))
 
     # We remove all warning roles from the user
-    remove_roles(target_user, [warning_role_list[inx] for inx in warning_role_list if warning_role_list[inx]])
+    await remove_roles(target_user, [warning_role_list[inx] for inx in warning_role_list if warning_role_list[inx]])
 
     # We check if the user is going to exceed the max warning level
     if target_user_warning_level == len(config["warning_roles"][message.server.id]["warning_role_ids"]) - 1:
+        # We check if we should kick or ban them
+        if config["warning_roles"][message.server.id]["ban_after_warnings"]:
+            # We ban them
+            await client.ban(target_user, 0)
+            # We tell the issuer that we banned them
+            await client.send_message(message.channel,
+                                      message.author.mention + ", " + target_user.mention + " has been banned since they reached the maximum number of warnings.")
+            # Log it
+            helpers.log_info(
+                "User {0} got banned by {1} from server {0}.".format(log_ob(target_user), log_ob(message.author),
+                                                                     log_ob(message.server)))
+            # We're done now
+            return
+        else:
+            # We kick them
+            await client.kick(target_user)
+            # We tell the issuer that we kicked them
+            await client.send_message(message.channel,
+                                      message.author.mention + ", " + target_user.mention + " has been kicked since they reached the maximum number of warnings.")
+            # Log it
+            helpers.log_info(
+                "User {0} got kicked by {1} from server {0}.".format(log_ob(target_user), log_ob(message.author),
+                                                                     log_ob(message.server)))
+            # We're done now
+            return
+
+    # We get the role that the target user should get
+    new_warning_role = discord.utils.get(message.server.roles, id=str(
+        config["warning roles"][message.server.id]["warning_role_ids"][warning_level + 1]))
+
+    # We check if the configured warning is valid
+    if isinstance(new_warning_role, discord.Role):
+        # We give the target user the role
+        await client.add_roles(target_user, new_warning_role)
+        # We tell the issuer that the target has been warned
+        await client.send_message(message.channel,
+                                  message.author.mention + ", ok, I have now warned " + target_user.mention + ".")
+        # We log it
+        helpers.log_info("User {0} warned user {1} on server {2}".format(log_ob(message.author), log_ob(target_user),
+                                                                         log_ob(message.server)))
+    else:
+        # We tell the issuer that the warning roles aren't set up correctly
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I tried to warn " + target_user.mention + ", but the warning role configuration for this server is incorrect.")
+        # We log it
+        helpers.log_warning(
+            "User {0} tried to warn user {1} on server {2}, but the server warning role configuration was incorrect".format(
+                log_ob(message.author), log_ob(target_user), log_ob(message.server)))
 
 
 async def cmd_remove_warning(message: discord.Message):

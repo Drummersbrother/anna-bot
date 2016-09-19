@@ -92,3 +92,8 @@ def log_error(text):
 
 def log_critical(text):
     log_text(text, 50)
+
+
+def log_dis_object(dis_object) -> str:
+    """This method returns a string that contains the passed object's name and id, in the format of '{0} ({1})'.format(object.name, object.id)."""
+    return "{0} ({1})".format(dis_object.name, dis_object.id)

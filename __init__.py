@@ -4,6 +4,7 @@ import subprocess
 import time
 
 import discord
+import helpers.log_dis_object as log_ob
 import requests
 
 import helpers
@@ -1428,6 +1429,87 @@ async def cmd_remove_vanity_roles(message: discord.Message):
             message.author.name, message.author.id))
 
 
+async def cmd_add_warning(message: discord.Message):
+    """This command is used to warn a player and keep adding warnings until the max warning number and then taking action on it"""
+
+    # We check if the server supports warnings
+    if message.server.id not in config["warning_roles"]:
+        # Tell the user that this server doesn't support warnings
+        await client.send_message(message.channel,
+                                  message.author.mention + ", you can't warn people on this server because this server has not configured warning roles.")
+        # Log it
+        helpers.log_info(
+            "User {0} tried to warn another user, but server {1} does not support warnings.".format(
+                log_ob(message.author), log_ob(message.server)))
+        # We're done here
+        return
+
+    # We strip the message of the username, and then we check if it is a valid one
+    username_raw = remove_anna_mention(message.content.strip())[len("warn "):].strip()
+
+    # We try to get the user, by getting the one that the issuer mentioned
+    target_user = discord.utils.get(message.server.members, mention=username_raw)
+
+    # We check if the user actually exists
+    if not isinstance(target_user, discord.Member):
+        # We tell the user that they did not specify a valid user
+        await client.send_message(message.channel,
+                                  message.author.mention + ", you did not specify a valid user. Make sure to use @mentions :smiley:")
+        # Log it
+        helpers.log_info("User {0} tried to warn user on server {1}, but did not specify a valid user.".format(
+            log_ob(message.author), log_ob(message.server)))
+        # We're done here
+        return
+
+    # We check that we have role add, role remove, ban/kick, and higher role list position that the target. We also check that the issuer is higher in the role hierarchy than the target
+    if (message.author.top_role.position <= target_user.top_role.position) or (
+            not check_add_remove_roles(target_user, message.channel)) or (not (
+            message.channel.permissions_for(message.server.me).ban_members if
+            config["warning_roles"][message.server.id][
+                "ban_after_warnings"] else message.channel.permissions_for(message.server.me).kick_members)):
+        # We tell the user that we do not have the proper permissions
+        await client.send_message(message.channel,
+                                  message.author.mention + ", you or I do not have the proper permissions to warn that player.")
+        # Log it
+        helpers.log_info("User {0} tried to warn user {1} on server {2}, but did not have proper permissions.".format(
+            log_ob(message.author), log_ob(target_user), log_ob(message.server)))
+
+        # We're done here
+        return
+
+    # Telling the user and logging that we're warning someone
+    await client.send_message(message.channel, message.author.mention + " ok, warning " + target_user.mention + ".")
+    helpers.log_info(
+        "User {0} is added a warning to user {1} on server {2}".format(log_ob(message.author), log_ob(target_user),
+                                                                       log_ob(message.server)))
+
+    # We check what warning the target user is on
+    target_user_warning_level = -1
+
+    for warning_level, warning_role_id in enumerate(config["warning roles"][message.server.id]["warning_role_ids"]):
+        # We check if the user has the role
+        if warning_role_id in [str(x.id) for x in target_user.roles]:
+            target_user_warning_level = warning_level
+
+    # The dict of warning roles
+    warning_role_list = {}
+
+    # We generate a list of all the warning roles, we do this in the correct order aswell
+    for warning_level, warning_role_id in enumerate(config["warning roles"][message.server.id]["warning_role_ids"]):
+        # We get the role, if it doesn't exist we just let it be None
+        warning_role_list[warning_level] = discord.utils.get(message.server.roles, id=str(warning_role_id))
+
+    # We remove all warning roles from the user
+    remove_roles(target_user, [warning_role_list[inx] for inx in warning_role_list if warning_role_list[inx]])
+
+    # We check if the user is going to exceed the max warning level
+    if target_user_warning_level == len(config["warning_roles"][message.server.id]["warning_role_ids"]) - 1:
+
+
+async def cmd_remove_warning(message: discord.Message):
+    """This command is used to remove a warning from a player if they have one"""
+
+
 async def cmd_admin_broadcast(message: discord.Message):
     """This method is used to handle admins wanting to broadcast a message to all servers and channel that anna-bot is in."""
 
@@ -1612,6 +1694,13 @@ def remove_anna_mention(message: discord.Message):
     return cleaned_message
 
 
+def check_add_remove_roles(member: discord.Member, channel: discord.Channel) -> bool:
+    """This method returns true if the currently logged in client can remove and add roles from the passed member in the passed channel."""
+
+    return channel.permissions_for(
+        member.server.me).manage_roles and member.top_role.position < member.server.me.top_role.position
+
+
 async def remove_roles(member: discord.Member, roles: list):
     """This function is used to remove all roles from a list from a user until the user does not have any of those roles, or the max retries have been attempted.
     This raises Forbidden if the client does not have permissions to remove roles from the target user.
@@ -1643,7 +1732,7 @@ async def remove_roles(member: discord.Member, roles: list):
 
     # We log how many retries it took to remove the roles from the user
     helpers.log_info(
-        "Removing roles from user {0} ({1}) took {2} retries.".format(member.name, member.id, i))
+        "Removing roles from user {0} took {1} retries.".format(log_ob(member), i))
 
 
 async def update_vanity_dictionary():

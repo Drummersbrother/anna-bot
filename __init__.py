@@ -1443,6 +1443,19 @@ async def cmd_add_warning(message: discord.Message):
         # We're done here
         return
 
+    # We check if the issuer has one of the authorised roles to add and remove warnings
+    if not (any(i in [str(x.id) for x in message.author.roles] for i in config["warning_roles"][message.server.id][
+        "roles_that_can_warn"]) or message.author == message.server.owner):
+        # We tell the issuer that they are not authorised to add or remove warnings
+        await client.send_message(message.channel,
+                                  message.author.mention + ", you are not authorised to add or remove warnings from people on this server.")
+        # We log it
+        helpers.log_info(
+            "User {0} tried to warn on server {1}, but was not authorised.".format(helpers.log_ob(message.author),
+                                                                                   helpers.log_ob(message.server)))
+        # We're done here
+        return
+
     # We strip the message of the username, and then we check if it is a valid one
     username_raw = remove_anna_mention(message.content.strip())[len("warn "):].strip()
 
@@ -1466,6 +1479,8 @@ async def cmd_add_warning(message: discord.Message):
             message.channel.permissions_for(message.server.me).ban_members if
             config["warning_roles"][message.server.id][
                 "ban_after_warnings"] else message.channel.permissions_for(message.server.me).kick_members)):
+        print(message.author.top_role.position <= target_user.top_role.position)
+
         # We tell the user that we do not have the proper permissions
         await client.send_message(message.channel,
                                   message.author.mention + ", you or I do not have the proper permissions to warn that player.")
@@ -1486,7 +1501,7 @@ async def cmd_add_warning(message: discord.Message):
     # We check what warning the target user is on
     target_user_warning_level = -1
 
-    for warning_level, warning_role_id in enumerate(config["warning roles"][message.server.id]["warning_role_ids"]):
+    for warning_level, warning_role_id in enumerate(config["warning_roles"][message.server.id]["warning_role_ids"]):
         # We check if the user has the role
         if warning_role_id in [str(x.id) for x in target_user.roles]:
             target_user_warning_level = warning_level
@@ -1495,7 +1510,7 @@ async def cmd_add_warning(message: discord.Message):
     warning_role_list = {}
 
     # We generate a list of all the warning roles, we do this in the correct order aswell
-    for warning_level, warning_role_id in enumerate(config["warning roles"][message.server.id]["warning_role_ids"]):
+    for warning_level, warning_role_id in enumerate(config["warning_roles"][message.server.id]["warning_role_ids"]):
         # We get the role, if it doesn't exist we just let it be None
         warning_role_list[warning_level] = discord.utils.get(message.server.roles, id=str(warning_role_id))
 
@@ -1535,7 +1550,7 @@ async def cmd_add_warning(message: discord.Message):
 
     # We get the role that the target user should get
     new_warning_role = discord.utils.get(message.server.roles, id=str(
-        config["warning roles"][message.server.id]["warning_role_ids"][target_user_warning_level + 1]))
+        config["warning_roles"][message.server.id]["warning_role_ids"][target_user_warning_level + 1]))
 
     # We check if the configured warning is valid
     if isinstance(new_warning_role, discord.Role):
@@ -1574,8 +1589,21 @@ async def cmd_remove_warning(message: discord.Message):
         # We're done here
         return
 
+    # We check if the issuer has one of the authorised roles to add and remove warnings
+    if not (any(i in [str(x.id) for x in message.author.roles] for i in config["warning_roles"][message.server.id][
+        "roles_that_can_warn"]) or message.author == message.server.owner):
+        # We tell the issuer that they are not authorised to add or remove warnings
+        await client.send_message(message.channel,
+                                  message.author.mention + ", you are not authorised to add or remove warnings from people on this server.")
+        # We log it
+        helpers.log_info(
+            "User {0} tried to warn on server {1}, but was not authorised.".format(helpers.log_ob(message.author),
+                                                                                   helpers.log_ob(message.server)))
+        # We're done here
+        return
+
     # We strip the message of the username, and then we check if it is a valid one
-    username_raw = remove_anna_mention(message.content.strip())[len("warn "):].strip()
+    username_raw = remove_anna_mention(message.content.strip())[len("unwarn "):].strip()
 
     # We try to get the user, by getting the one that the issuer mentioned
     target_user = discord.utils.get(message.server.members, mention=username_raw)
@@ -1618,7 +1646,7 @@ async def cmd_remove_warning(message: discord.Message):
     # We check what warning the target user is on
     target_user_warning_level = -1
 
-    for warning_level, warning_role_id in enumerate(config["warning roles"][message.server.id]["warning_role_ids"]):
+    for warning_level, warning_role_id in enumerate(config["warning_roles"][message.server.id]["warning_role_ids"]):
         # We check if the user has the role
         if warning_role_id in [str(x.id) for x in target_user.roles]:
             target_user_warning_level = warning_level
@@ -1627,7 +1655,7 @@ async def cmd_remove_warning(message: discord.Message):
     warning_role_list = {}
 
     # We generate a list of all the warning roles, we do this in the correct order aswell
-    for warning_level, warning_role_id in enumerate(config["warning roles"][message.server.id]["warning_role_ids"]):
+    for warning_level, warning_role_id in enumerate(config["warning_roles"][message.server.id]["warning_role_ids"]):
         # We get the role, if it doesn't exist we just let it be None
         warning_role_list[warning_level] = discord.utils.get(message.server.roles, id=str(warning_role_id))
 
@@ -1650,7 +1678,7 @@ async def cmd_remove_warning(message: discord.Message):
 
     # We get the role that the target user should get
     new_warning_role = discord.utils.get(message.server.roles, id=str(
-        config["warning roles"][message.server.id]["warning_role_ids"][target_user_warning_level - 1]))
+        config["warning_roles"][message.server.id]["warning_role_ids"][target_user_warning_level - 1]))
 
     # We check if the configured warning is valid
     if isinstance(new_warning_role, discord.Role):
@@ -1839,21 +1867,25 @@ def is_message_command(message: discord.Message):
         client.user.mention)
 
 
-def remove_anna_mention(message: discord.Message):
+def remove_anna_mention(message):
     """This function is used to remove the first part of an anna message so that the command code can more easily parse the command"""
 
     # The weird mention for the bot user, the string manipulation is due to mention strings not being the same all the time
     client_mention = client.user.mention[:2] + "!" + client.user.mention[2:]
 
-    # We first check if discord is fucking with us by using the weird mention
-    if message.content.lstrip().startswith(client_mention):
-
-        # Removing the anna bot mention in the message so we can parse the arguments more easily
-        cleaned_message = message.content.lstrip()[len(client_mention) + 1:]
+    # We check if the input is a message or just a string
+    if isinstance(message, discord.Message):
+        content = message.content
     else:
+        content = message
 
+    # We first check if discord is fucking with us by using the weird mention
+    if content.lstrip().startswith(client_mention):
         # Removing the anna bot mention in the message so we can parse the arguments more easily
-        cleaned_message = message.content.lstrip()[len(client.user.mention) + 1:]
+        cleaned_message = content.lstrip()[len(client_mention) + 1:]
+    else:
+        # Removing the anna bot mention in the message so we can parse the arguments more easily
+        cleaned_message = content.lstrip()[len(client.user.mention) + 1:]
 
     return cleaned_message
 
@@ -1958,7 +1990,8 @@ public_commands = [dict(command="invite", method=cmd_invite_link,
                             config["invite_cmd"]["invite_max_uses"]) + " use[s]."),
                    dict(command="add-bot", method=cmd_gen_bot_invite,
                         helptext="Generate an invite link so you can add the bot to your own server, (with proper permissions of course)."),
-                   dict(command="anna-stats", method=cmd_report_stats, helptext="Report some stats about anna."),
+                   dict(command="anna-stats", method=cmd_report_stats,
+                        helptext="Report some stats about anna."),
                    dict(command="voice join", method=cmd_join_voice_channel,
                         helptext="Joins the specified voice channel if anna can access it."),
                    dict(command="voice leave", method=cmd_leave_voice_channel,
@@ -1983,7 +2016,12 @@ public_commands = [dict(command="invite", method=cmd_invite_link,
                         helptext="PMs you with a list of all available roles for this server."),
                    dict(command="whoru", method=cmd_who_r_u,
                         helptext="Use this if you want an explanation as to what anna-bot is."),
-                   dict(command="help", method=cmd_help, helptext="Do I really need to explain this...")]
+                   dict(command="help", method=cmd_help, helptext="Do I really need to explain this..."),
+                   dict(command="warn", method=cmd_add_warning,
+                        helptext="Gives a warning to a player, if they reach the maximum number of warnings, (depending on the server's settings) they are banned or kicked. This command can only be used by certain roles."),
+                   dict(command="unwarn", method=cmd_remove_warning,
+                        helptext="Removes a warning from a player. This command can only be used by certain players.")
+                   ]
 
 # The commands authorised users can use, these are some pretty powerful commands, so be careful with which users you give administrative access to the bot to
 admin_commands = [dict(command="broadcast", method=cmd_admin_broadcast,

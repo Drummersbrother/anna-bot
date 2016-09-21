@@ -2013,14 +2013,14 @@ public_commands = [dict(command="invite", method=cmd_invite_link,
                    dict(command="role remove", method=cmd_remove_vanity_roles,
                         helptext="Use this to remove all your vanity roles."),
                    dict(command="role list", method=cmd_list_vanity_roles,
-                        helptext="PMs you with a list of all available roles for this server."),
+                        helptext="PMs you with a list of all available vanity roles for this server."),
                    dict(command="whoru", method=cmd_who_r_u,
                         helptext="Use this if you want an explanation as to what anna-bot is."),
                    dict(command="help", method=cmd_help, helptext="Do I really need to explain this..."),
                    dict(command="warn", method=cmd_add_warning,
-                        helptext="Gives a warning to a player, if they reach the maximum number of warnings, (depending on the server's settings) they are banned or kicked. This command can only be used by certain roles."),
+                        helptext="Gives a warning to a user, if they reach the maximum number of warnings, (depending on the server's settings) they are banned or kicked. This command can only be used by certain roles."),
                    dict(command="unwarn", method=cmd_remove_warning,
-                        helptext="Removes a warning from a player. This command can only be used by certain players.")
+                        helptext="Removes a warning from a user. This command can only be used by certain roles.")
                    ]
 
 # The commands authorised users can use, these are some pretty powerful commands, so be careful with which users you give administrative access to the bot to

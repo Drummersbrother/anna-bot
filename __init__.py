@@ -24,6 +24,8 @@ client = discord.Client(cache_auth=False)
 
 
 # TODO Handle group calls and messages, and/or move to the commands extension
+# TODO a voice join command that joins the calling user's current voice channel
+# TODO implement voice play queue commands
 
 @client.event
 async def on_message(message: discord.Message):

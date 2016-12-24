@@ -83,12 +83,29 @@ async def cmd_join_voice_channel(message: discord.Message, client: discord.Clien
                         if user_response.isdecimal():
 
                             # We can convert the user response into a number and then check if it is a valid choice or not
-                            if len(channel_candidates) > int(user_response) >= 0:
+                            if int(user_response) in [x[1] for x in channel_candidates]:
                                 # Converting the response into an int
                                 user_response = int(user_response)
 
                                 # Choosing the channel to join
-                                voice_channel = channel_candidates[user_response][0]
+                                voice_channel = [x[0] for x in channel_candidates if x[1] == int(user_response)][0]
+
+                            else:
+                                # The user tried to choose an invalid alternative
+                                await client.send_message(message.channel,
+                                                          message.author.mention + ", that's not an alternative.")
+
+                                # We're done here
+                                return
+
+
+                        else:
+                            # Invalid number / That's not a number
+                            await client.send_message(message.channel,
+                                                      message.author.mention + ", that's not a number.")
+
+                            # We're done here
+                            return
 
                     else:
                         # The waiting timed out, so we message the user that they waited to long
@@ -153,17 +170,34 @@ async def cmd_join_voice_channel(message: discord.Message, client: discord.Clien
                         if user_response.isdecimal():
 
                             # We can convert the user response into a number and then check if it is a valid choice or not
-                            if len(channel_candidates) > int(user_response) >= 0:
+                            if int(user_response) in [x[1] for x in channel_candidates]:
                                 # Converting the response into an int
                                 user_response = int(user_response)
 
                                 # Choosing the channel to join
-                                voice_channel = channel_candidates[user_response][0]
+                                voice_channel = [x[0] for x in channel_candidates if x[1] == int(user_response)][0]
+
+                            else:
+                                # The user tried to choose an invalid alternative
+                                await client.send_message(message.channel,
+                                                          message.author.mention + ", that's not an alternative.")
+
+                                # We're done here
+                                return
+
+
+                        else:
+                            # Invalid number / That's not a number
+                            await client.send_message(message.channel,
+                                                      message.author.mention + ", that's not a number.")
+
+                            # We're done here
+                            return
 
                     else:
                         # The waiting timed out, so we message the user that they waited to long
                         await client.send_message(message.channel,
-                                                  message.author.mention + ", you waited to long with answering which channel you want me to connect to.")
+                                                  message.author.mention + ", you waited too long with answering which channel you want me to connect to.")
 
                         # We're done here
                         return

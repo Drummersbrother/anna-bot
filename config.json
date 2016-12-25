@@ -48,7 +48,7 @@
     "use_email_notifications": false,
     "email_settings": {
       "smtp_server": "",
-      "smtp_port" ,
+      "smtp_port" "",
       "username": "",
       "password": "",
       "send_to": [""],

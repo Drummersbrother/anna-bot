@@ -30,6 +30,11 @@ client = discord.Client(cache_auth=False)
 @client.event
 async def on_message(message: discord.Message):
     # We wait for a split second so we can be assured that ignoring of messages and other things have finished before the message is processed here
+
+    # We make sure the message is a regular one
+    if message.type != discord.MessageType.default:
+        return
+
     await asyncio.sleep(0.1)
 
     # The weird mention for the bot user (mention code starts with an exclamation mark instead of just the user ID), the string manipulation is due to mention strings not being the same all the time

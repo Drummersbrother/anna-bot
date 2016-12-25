@@ -175,3 +175,21 @@ def is_message_command(message: discord.Message, client):
     # We return if the message is a command or not
     return message.content.lower().strip().startswith(client_mention) or message.content.lower().strip().startswith(
         client.user.mention)
+
+
+async def send_long(client: discord.Client, message: str, channel: discord.Channel):
+    """This method is used to send long messages (longer than 2000 chars) without triggering rate-limiting"""
+
+    # How long we wait between each message
+    cooldown_time = 0.5
+
+    # We split the input message into 1999 char chunks
+    message_parts = [message[i:i + 1999] for i in range(0, len(message), 1999)]
+
+    # We send the message in multiple messages to bypass the 2000 char limit, and we pause between each message to not get rate-limited
+    for split_message in message_parts:
+        # We wait for a bit to not get rate-limited
+        await asyncio.sleep(cooldown_time)
+
+        # We send the message part
+        await client.send_message(channel, split_message)

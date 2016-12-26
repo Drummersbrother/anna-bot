@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging.handlers
+import re
 
 import discord
 
@@ -38,6 +39,16 @@ if config["log_config"]["use_email_notifications"]:
 
     # We add the mail handler to the logger
     logger.addHandler(mail_notification_handler)
+
+# We compile the regular expressions we will need, for performance
+role_id_regex = re.compile(r'<@&\d+>')
+
+
+def write_config(config_temp: dict):
+    """This function writes the passed dict out to the config file as json."""
+    # We write the out to the file
+    with open("config.json", mode="w", encoding="utf-8") as config_file_temp:
+        json.dump(config_temp, config_file_temp, indent=2, sort_keys=False)
 
 
 def get_formatted_duration_fromtime(duration_seconds_noformat):
@@ -175,6 +186,28 @@ def is_message_command(message: discord.Message, client):
     # We return if the message is a command or not
     return message.content.lower().strip().startswith(client_mention) or message.content.lower().strip().startswith(
         client.user.mention)
+
+
+def remove_discord_formatting(*strings):
+    """This method removes all discord formatting chars from all the passed strings, and returns them in a list ordered like they were passed to it."""
+
+    return [x.replace("*", "").replace("_", "").replace("~", "") for x in strings]
+
+
+def get_role_from_mention(member: discord.Member, string: str):
+    """This method returns a role from the member's server based on the role mention in string.
+    Returns None if there isn't a matching role on the member's server."""
+
+    string = string.strip()
+    match = role_id_regex.search(string)
+
+    # Role mentions are in the format <@&ROLE_ID>, so we try to extract the role id with a precompiled regex
+    if match:
+        # We check if the role id is in the server
+        role_id_string = match.group(0)[3:-1]
+        if role_id_string in [x.id for x in member.server.roles]:
+            # We search the member's server's roles for the string role id
+            return discord.utils.get(member.server.roles, id=role_id_string)
 
 
 async def send_long(client: discord.Client, message: str, channel: discord.Channel):

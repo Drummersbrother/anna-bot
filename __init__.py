@@ -24,8 +24,6 @@ client = discord.Client(cache_auth=False)
 
 
 # TODO Handle group calls and messages, and/or move to the commands extension
-# TODO a voice join command that joins the calling user's current voice channel
-# TODO implement voice play queue commands
 
 @client.event
 async def on_message(message: discord.Message):
@@ -101,7 +99,7 @@ async def on_message(message: discord.Message):
     global ignored_command_message_ids
 
     # We define the list of special parameters that may be sent to the message functions, and also have to be returned from them (in an o)
-    special_params = [ignored_command_message_ids]
+    special_params = [ignored_command_message_ids, config]
 
     # Checking if we sent the message, so we don't trigger ourselves and checking if the message should be ignored or not (such as it being a response to another command)
     if (message.author.id != client.user.id) and (message.id not in ignored_command_message_ids):
@@ -627,56 +625,57 @@ async def cmd_help(message: discord.Message, passed_client: discord.Client, pass
                                      "To use commands in a regular server channel, just do \"" + client_mention + " COMMAND\"")
 
 
-async def cmd_admin_reload_config(message: discord.Message):
+async def cmd_admin_reload_config(message: discord.Message, passed_client: discord.Client, passed_config: dict):
     """This method is used to handle an admin user wanting us to reload the config file.
     Because of code simplicity this is one of the command functions that needs to stay in the __init__py file."""
 
     # Telling the issuing user that we're reloading the config
     # Checking if we're in a private channel or if we're in a regular channel so we can format our message properly
     if message.channel.is_private:
-        await client.send_message(message.channel, "Ok, I'm reloading it right now!")
+        await passed_client.send_message(message.channel, "Ok, I'm reloading it right now!")
     else:
-        await client.send_message(message.channel, "Ok " + message.author.mention + ", I'm reloading it right now!")
+        await passed_client.send_message(message.channel,
+                                         "Ok " + message.author.mention + ", I'm reloading it right now!")
 
     # Telling the issuing user that we're reloading the config file
-    await client.send_message(message.channel, "Reloading the config file...")
+    await passed_client.send_message(message.channel, "Reloading the config file...")
 
     # Logging that we're loading the config
     helpers.log_info("Reloading the config file...")
 
     # Loading the config file and then parsing it as json and storing it in a python object
-    with open("config.json", mode="r", encoding="utf-8") as config_file:
+    with open("config.json", mode="r", encoding="utf-8") as opened_config_file:
         global config
-        config = json.load(config_file)
+        config = json.load(opened_config_file)
 
     # Logging that we're done loading the config
     helpers.log_info("Done reloading the config")
 
     # Telling the issuing user that we're done reloading the config file
-    await client.send_message(message.channel, "Done reloading the config file!")
+    await passed_client.send_message(message.channel, "Done reloading the config file!")
 
     # Telling the issuing user that we're updating the vanity command dict
-    await client.send_message(message.channel, "Updating vanity commands...")
+    await passed_client.send_message(message.channel, "Updating vanity commands...")
 
     # Logging that we're updating the vanity commands
     helpers.log_info("Updating vanity commands...")
 
     # Updating the vanity command dict because the config file could have changed the vanity setup
-    await code.commands.regular.vanity_role_commands.update_vanity_dictionary(client, config)
+    await code.commands.regular.vanity_role_commands.update_vanity_dictionary(passed_client, passed_config)
 
     # Logging that we're done updating the vanity commands
     helpers.log_info("Done updating vanity commands")
 
     # Telling the issuing user that we're done updating the vanity command dict
-    await client.send_message(message.channel, "Done updating vanity commands!")
+    await passed_client.send_message(message.channel, "Done updating vanity commands!")
 
     # Telling the issuing user that we're reloading the config
     # Checking if we're in a private channel or if we're in a regular channel so we can format our message properly
     if message.channel.is_private:
-        await client.send_message(message.channel, "Ok, I'm done reloading now :smile:")
+        await passed_client.send_message(message.channel, "Ok, I'm done reloading now :smile:")
     else:
-        await client.send_message(message.channel,
-                                  "Ok " + message.author.mention + ", I'm done reloading it now :smile:")
+        await passed_client.send_message(message.channel,
+                                         "Ok " + message.author.mention + ", I'm done reloading it now :smile:")
 
 
 def set_special_param(index: int, value):
@@ -684,11 +683,14 @@ def set_special_param(index: int, value):
     We need this function since python doesn't have a concept of references."""
 
     global ignored_command_message_ids
+    global config
 
     # This code is really ugly because we need performance (dictionaries with lambdas with exec it very slow since it compiles every time we define it),
     # because python doesn't have any concept of references, and because python doesn't have any equivalent to switch/case
     if index == 0:
         ignored_command_message_ids = value
+    elif index == 1:
+        config = value
 
 
 # Logging that we're loading the config
@@ -706,7 +708,7 @@ config["stats"]["volatile"]["start_time"] = time.time()
 
 # We write the modified config back to the file
 with open("config.json", mode="w", encoding="utf-8") as config_file:
-    json.dump(config, config_file, indent=2, sort_keys=True)
+    json.dump(config, config_file, indent=2, sort_keys=False)
 
 # Logging that we're done loading the config
 helpers.log_info("Done loading the config")
@@ -716,54 +718,87 @@ helpers.log_info("Done loading the config")
 public_commands = [dict(command="invite", method=code.commands.regular.invite_link.invite_link,
                         helptext="Generate an invite link to the current channel, the link will be valid for " + str(
                             config["invite_cmd"]["invite_valid_time_min"]) + " minutes and " + str(
-                            config["invite_cmd"]["invite_max_uses"]) + " use[s].", special_params=[False]),
+                            config["invite_cmd"]["invite_max_uses"]) + " use[s].", special_params=[False, False]),
                    dict(command="add-bot", method=code.commands.regular.gen_bot_invite.gen_bot_invite,
                         helptext="Generate an invite link so you can add the bot to your own server, (with proper permissions of course).",
-                        special_params=[False]),
+                        special_params=[False, False]),
                    dict(command="anna-stats", method=code.commands.regular.report_stats.cmd_report_stats,
-                        helptext="Report some stats about anna.", special_params=[False]),
-                   dict(command="voice join", method=code.commands.regular.voice_commands.cmd_join_voice_channel,
-                        helptext="Joins the specified voice channel if anna can access it.", special_params=[True]),
+                        helptext="Report some stats about anna.", special_params=[False, False]),
+                   dict(command="voice join channel ",
+                        method=code.commands.regular.voice_commands.cmd_join_voice_channel,
+                        helptext="Joins the specified voice channel if anna can access it.",
+                        special_params=[True, False]),
+                   dict(command="voice joinme", method=code.commands.regular.voice_commands.join_self_voice_channel,
+                        helptext="Joins the voice channel you are connected to if anna can access it.",
+                        special_params=[False, False]),
                    dict(command="voice leave", method=code.commands.regular.voice_commands.cmd_leave_voice_channel,
-                        helptext="Leaves the specified voice channel if anna is connected to it.",
-                        special_params=[False]),
+                        helptext="Leaves the specified voice channel anna is connected to.",
+                        special_params=[False, False]),
                    dict(command="voice play youtube",
                         method=code.commands.regular.voice_commands.cmd_voice_play_youtube,
-                        helptext="Plays the audio of the given youtube link at the (optional) specified volume (0% -> 200%). This might work with other types of video streaming sites, but I give no guarantee.",
-                        special_params=[False]),
+                        helptext="Adds the audio of the given youtube link to the voice queue. This might work with other types of video streaming sites, but I give no guarantee.",
+                        special_params=[False, False]),
+                   dict(command="voice play search youtube",
+                        method=code.commands.regular.voice_commands.cmd_voice_play_youtube_search,
+                        helptext="Adds the audio of the first youtube search result from given query to the voice queue.",
+                        special_params=[False, False]),
+                   dict(command="queue list", method=code.commands.regular.voice_commands.cmd_voice_queue_list,
+                        helptext="Lists the current voice queue.", special_params=[False, False]),
+                   dict(command="queue clear", method=code.commands.regular.voice_commands.cmd_voice_queue_clear,
+                        helptext="Clears the current voice queue, and stops the currently playing audio.",
+                        special_params=[False, False]),
+                   dict(command="queue forward", method=code.commands.regular.voice_commands.cmd_voice_queue_forward,
+                        helptext="Pauses the currently playing audio, moves the specified queue index to the front, and starts playing that instead.",
+                        special_params=[False, False]),
+                   dict(command="queue remove", method=code.commands.regular.voice_commands.cmd_voice_queue_remove,
+                        helptext="Removes the specified queue index from the queue, if the index is 0, it effectively acts as a skip command.",
+                        special_params=[False, False]),
                    dict(command="voice volume", method=code.commands.regular.voice_commands.cmd_voice_set_volume,
                         helptext="Change the volume of the audio that anna plays (0% -> 200%).",
-                        special_params=[False]),
+                        special_params=[False, False]),
                    dict(command="voice toggle", method=code.commands.regular.voice_commands.cmd_voice_play_toggle,
                         helptext="Toggle (pause or unpause) the audio anna is currently playing.",
-                        special_params=[False]),
+                        special_params=[False, False]),
                    dict(command="voice stop", method=code.commands.regular.voice_commands.cmd_voice_play_stop,
-                        helptext="Stop the audio that anna is currently playing.", special_params=[False]),
+                        helptext="Stop the audio that anna is currently playing.", special_params=[False, False]),
                    dict(command=config["start_server_cmd"]["start_server_command"],
                         method=code.commands.regular.start_server.start_server,
                         helptext="Start the minecraft server (if the channel and users have the necessary permissions to do so).",
-                        special_params=[False]),
+                        special_params=[False, False]),
                    dict(command="list ids", method=code.commands.regular.list_ids.list_ids,
                         helptext="PMs you with a list of all the ids of all the things on the server. This includes roles, users, channels, and the server itself.",
-                        special_params=[False]),
+                        special_params=[False, False]),
                    dict(command="role change", method=code.commands.regular.vanity_role_commands.change_vanity_role,
                         helptext="Use this to change to another vanity role (**role list** to list all available roles).",
-                        special_params=[False]),
+                        special_params=[False, False]),
                    dict(command="role remove", method=code.commands.regular.vanity_role_commands.remove_vanity_roles,
-                        helptext="Use this to remove all your vanity roles.", special_params=[False]),
+                        helptext="Use this to remove all your vanity roles.", special_params=[False, False]),
                    dict(command="role list", method=code.commands.regular.vanity_role_commands.list_vanity_roles,
                         helptext="PMs you with a list of all available vanity roles for this server.",
-                        special_params=[False]),
+                        special_params=[False, False]),
                    dict(command="whoru", method=code.commands.regular.who_r_u.who_r_u,
-                        helptext="Use this if you want an explanation as to what anna-bot is.", special_params=[False]),
+                        helptext="Use this if you want an explanation as to what anna-bot is.",
+                        special_params=[False, False]),
                    dict(command="help", method=cmd_help, helptext="Do I really need to explain this...",
-                        special_params=[False]),
+                        special_params=[False, False]),
                    dict(command="warn", method=code.commands.regular.warning_commands.add_warning,
                         helptext="Gives a warning to a user, if they reach the maximum number of warnings, (depending on the server's settings) they are banned or kicked. This command can only be used by certain roles.",
-                        special_params=[False]),
+                        special_params=[False, False]),
                    dict(command="unwarn", method=code.commands.regular.warning_commands.remove_warning,
                         helptext="Removes a warning from a user. This command can only be used by certain roles.",
-                        special_params=[False])
+                        special_params=[False, False]),
+                   dict(command="voice roles list",
+                        method=code.commands.regular.voice_commands.cmd_voice_permissions_list_allowed,
+                        helptext="Lists the roles that are allowed to issue voice commands.",
+                        special_params=[False, True]),
+                   dict(command="voice roles add",
+                        method=code.commands.regular.voice_commands.cmd_voice_permissions_add_allowed,
+                        helptext="Adds a role to the list of roles that are allowed to issue voice commands.",
+                        special_params=[False, True]),
+                   dict(command="voice roles remove",
+                        method=code.commands.regular.voice_commands.cmd_voice_permissions_remove_allowed,
+                        helptext="Removes a role from the list of roles that are allowed to issue voice commands.",
+                        special_params=[False, True])
                    ]
 
 # The commands authorised users can use, these are some pretty powerful commands, so be careful with which users you give administrative access to the bot to

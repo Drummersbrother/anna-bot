@@ -22,6 +22,9 @@
     "messages_sent": 0,
     "commands_received": 0
   },
+  "voice_command_roles" : {
+    "server id" : [ALLOWED ROLE IDS...]
+  },
   "warning_roles" : {
     "server id": {
         roles_that_can_warn: [ROLE IDS...], 

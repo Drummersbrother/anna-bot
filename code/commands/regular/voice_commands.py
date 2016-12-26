@@ -665,10 +665,10 @@ async def cmd_voice_play_stop(message: discord.Message, client: discord.Client, 
 async def cmd_voice_queue_list(message: discord.Message, client: discord.Client, config: dict):
     """This method shows the audio current queue for the server that it was called from."""
 
-    # We check if the issuing user has the proper permissions on this server
-    if not await permission_checker(message, client, config):
-        # We're done here
-        return
+    # We check if the message was sent in a regular channel
+    if not await pm_checker():
+        # They can't execute the commands
+        return False
 
     # We check if the message was sent in a server where we are connected to a voice channel
     if client.voice_client_in(message.server) is None:
@@ -1061,10 +1061,7 @@ async def permission_checker(message: discord.Message, client: discord.Client, c
     If the user is allowed to use commands, it returns true, otherwise, it returns false"""
 
     # We check if the message was sent in a regular channel
-    if message.channel.is_private:
-        # There are no queues for pms
-        await client.send_message(message.author,
-                                  "This is a PM channel, there are no voice channels belonging to PM channels, and there can therefore not belong any queues to them.")
+    if not await pm_checker():
         # They can't execute the commands
         return False
 
@@ -1083,6 +1080,19 @@ async def permission_checker(message: discord.Message, client: discord.Client, c
     # They can and are allowed to execute the commands
     return True
 
+
+async def pm_checker(message: discord.Message, client: discord.Client):
+    """This method checks if the passed message is in PM or not.
+    Returns True if the message was not sent in a PM, else returns false."""
+
+    # We check if the message was sent in a regular channel
+    if message.channel.is_private:
+        # There are no voice commands for pms
+        await client.send_message(message.author,
+                                  "This is a PM channel, there are no voice channels belonging to PM channels, and there can therefore not belong any queues to them.")
+        # They can't execute the commands
+        return False
+    return True
 
 def queue_handler(current_player):
     """This method gets called after each streamplayer stops, with current_player being the player that exited.

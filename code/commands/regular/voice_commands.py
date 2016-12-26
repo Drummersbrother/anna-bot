@@ -345,7 +345,9 @@ async def cmd_voice_play_youtube(message: discord.Message, client: discord.Clien
         try:
             # We're connected to a voice channel, so we try to create the ytdl stream player
             youtube_player = await voice.create_ytdl_player(youtube_url, after=queue_handler)
-        except youtube_dl.utils.ExtractorError:
+        except KeyboardInterrupt as e:
+            raise e
+        except:
             # The URL failed to load, it's probably invalid
             await client.send_message(message.channel,
                                       message.author.mention + ", that URL failed to load, is it valid?")
@@ -842,7 +844,7 @@ async def cmd_voice_queue_forward(message: discord.Message, client: discord.Clie
             server_and_queue_dict[message.server.id][0].pause()
 
             # We save the volume of the currently playing player
-            last_volume = server_and_queue_dict[message.server.id].volume
+            last_volume = server_and_queue_dict[message.server.id][0].volume
 
             # We move the specified player to the front
             server_and_queue_dict[message.server.id].insert(0, server_and_queue_dict[message.server.id].pop(

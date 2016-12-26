@@ -1,5 +1,5 @@
 # anna-bot
-A discord bot created for the https://mcevalonia.com minecraft server, but usable for all servers.
+A discord bot created for the https://mcevalonia.com minecraft server's discord server, but usable by all discord servers.
 
 ## How to run
 ### Dependencies:

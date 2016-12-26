@@ -851,10 +851,10 @@ async def cmd_voice_queue_forward(message: discord.Message, client: discord.Clie
                 int(clean_argument)))
 
             # We set the volume of the newly forwarded player
-            server_and_queue_dict[0].volume = last_volume
+            server_and_queue_dict[message.server.id][0].volume = last_volume
 
             # We resume the player
-            server_and_queue_dict[0].resume()
+            server_and_queue_dict[message.server.id][0].resume()
 
             # We tell the user that we've forwarded the player in the queue
             await client.send_message(message.channel,

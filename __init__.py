@@ -717,8 +717,11 @@ helpers.log_info("Done loading the config")
 # The special params are defined in the on_message function, but they basically just pass all the special params as KW arguments
 public_commands = [dict(command="invite", method=code.commands.regular.invite_link.invite_link,
                         helptext="Generate an invite link to the current channel, the link will be valid for " + str(
-                            config["invite_cmd"]["invite_valid_time_min"]) + " minutes and " + str(
-                            config["invite_cmd"]["invite_max_uses"]) + " use[s].", special_params=[False, False]),
+                            config["invite_cmd"]["invite_valid_time_min"] if config["invite_cmd"][
+                                                                                 "invite_valid_time_min"] > 0 else "infinite") + " minutes and " + str(
+                            config["invite_cmd"]["invite_max_uses"] if config["invite_cmd"][
+                                                                           "invite_max_uses"] > 0 else "infinite") + " use[s].",
+                        special_params=[False, False]),
                    dict(command="add-bot", method=code.commands.regular.gen_bot_invite.gen_bot_invite,
                         helptext="Generate an invite link so you can add the bot to your own server, (with proper permissions of course).",
                         special_params=[False, False]),

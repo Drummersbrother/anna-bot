@@ -666,7 +666,7 @@ async def cmd_voice_queue_list(message: discord.Message, client: discord.Client,
     """This method shows the audio current queue for the server that it was called from."""
 
     # We check if the message was sent in a regular channel
-    if not await pm_checker():
+    if not await pm_checker(message, client):
         # They can't execute the commands
         return False
 
@@ -884,12 +884,9 @@ async def cmd_voice_permissions_list_allowed(message: discord.Message, client: d
                                              config_nope: dict):
     """This command lists the current allowed voice roles. It takes 2 config parameters because it has special param index 1 enabled, this means it can change the global config object"""
 
-    # We check if the command was issued in a PM, not using the permissions checker since we don't check for allowed voice roles
-    if message.channel.is_private:
-        # There are no queues for pms
-        await client.send_message(message.author,
-                                  "This is a PM channel, there are no voice channels belonging to PM channels, and there can therefore not belong any queues to them.")
-        # We're done here
+    # We check if the message was sent in a regular channel
+    if not await pm_checker(message, client):
+        # They can't execute the commands
         return [config]
 
     # We check if the user has the administrator permission
@@ -947,12 +944,9 @@ async def cmd_voice_permissions_add_allowed(message: discord.Message, client: di
                                             config_nope: dict):
     """This command adds a role to the current allowed voice roles, and writes it to the config."""
 
-    # We check if the command was issued in a PM, not using the permissions checker since we don't check for allowed voice roles
-    if message.channel.is_private:
-        # There are no queues for pms
-        await client.send_message(message.author,
-                                  "This is a PM channel, there are no voice channels belonging to PM channels, and there can therefore not belong any queues to them.")
-        # We're done here
+    # We check if the message was sent in a regular channel
+    if not await pm_checker(message, client):
+        # They can't execute the commands
         return [config]
 
     # We check if the user has the administrator permission
@@ -1003,12 +997,9 @@ async def cmd_voice_permissions_remove_allowed(message: discord.Message, client:
                                                config_nope: dict):
     """This command removes a role to the current allowed voice roles, and writes it to the config."""
 
-    # We check if the command was issued in a PM, not using the permissions checker since we don't check for allowed voice roles
-    if message.channel.is_private:
-        # There are no queues for pms
-        await client.send_message(message.author,
-                                  "This is a PM channel, there are no voice channels belonging to PM channels, and there can therefore not belong any queues to them.")
-        # We're done here
+    # We check if the message was sent in a regular channel
+    if not await pm_checker(message, client):
+        # They can't execute the commands
         return [config]
 
     # We check if the user has the administrator permission
@@ -1061,7 +1052,7 @@ async def permission_checker(message: discord.Message, client: discord.Client, c
     If the user is allowed to use commands, it returns true, otherwise, it returns false"""
 
     # We check if the message was sent in a regular channel
-    if not await pm_checker():
+    if not await pm_checker(message, client):
         # They can't execute the commands
         return False
 
@@ -1093,6 +1084,7 @@ async def pm_checker(message: discord.Message, client: discord.Client):
         # They can't execute the commands
         return False
     return True
+
 
 def queue_handler(current_player):
     """This method gets called after each streamplayer stops, with current_player being the player that exited.

@@ -1,6 +1,10 @@
 import discord
 
+from ... import command_decorator
 
+
+@command_decorator.command("add-bot",
+                           "Generate an invite link so you can add the bot to your own server, (with proper permissions of course).")
 async def gen_bot_invite(message: discord.Message, client: discord.Client, config: dict):
     """This method is called to handle someone wanting to invite anna-bot to their own server"""
 

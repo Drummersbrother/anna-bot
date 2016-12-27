@@ -5,6 +5,7 @@ import urllib.request
 import discord
 import youtube_dl
 
+from ... import command_decorator
 from ... import helpers
 
 """This file handles the voice command interactions, state, and commands."""
@@ -13,6 +14,8 @@ from ... import helpers
 server_and_queue_dict = {}
 
 
+@command_decorator.command("voice join channel", "Joins the specified voice channel if anna can access it.",
+                           cmd_special_params=[True, False])
 async def cmd_join_voice_channel(message: discord.Message, client: discord.Client, config: dict,
                                  ignored_command_message_ids: list):
     """This command is issued to make anna join a voice channel if she has access to it on the server where this command was issued."""
@@ -37,7 +40,7 @@ async def cmd_join_voice_channel(message: discord.Message, client: discord.Clien
     if not client.is_voice_connected(message.server):
 
         # We check to see if we have permissions to join the voice channel
-        if not message.channel.permissions_for(message.server.me).connect:
+        if not message.server.me.server_permissions.connect:
             # We don't have permissions to join a voice channel in this server, so we tell the user to fuck off
             await client.send_message(message.channel,
                                       message.author.mention + ", I don't have permission to join a voice channel on this server.")
@@ -236,7 +239,8 @@ async def cmd_join_voice_channel(message: discord.Message, client: discord.Clien
     return ignored_command_message_ids
 
 
-async def join_self_voice_channel(message: discord.Message, client: discord.Client, config: dict):
+@command_decorator.command("voice joinme", "Joins the voice channel you are connected to if anna can access it.")
+async def cmd_join_self_voice_channel(message: discord.Message, client: discord.Client, config: dict):
     """This method makes anna-bot join the voice channel of the member who called the command."""
 
     # We check if the issuing user has the proper permissions on this server
@@ -285,6 +289,7 @@ async def join_self_voice_channel(message: discord.Message, client: discord.Clie
     server_and_queue_dict[message.server.id] = []
 
 
+@command_decorator.command("voice leave", "Leaves the voice channel anna is connected to")
 async def cmd_leave_voice_channel(message: discord.Message, client: discord.Client, config: dict):
     """This command is issued to make anna leave a voice channel if she is connected to it on the server where this command was issued."""
 
@@ -318,6 +323,8 @@ async def cmd_leave_voice_channel(message: discord.Message, client: discord.Clie
                                   message.author.mention + ", I'm not connected to a voice channel on this server, if you want me to connect to one, please use the \"@anna-bot voice join CHANNELNAME\" command.")
 
 
+@command_decorator.command("voice play youtube",
+                           "Adds the audio of the given youtube link to the voice queue. This might work with other types of video streaming sites, but I give no guarantee.")
 async def cmd_voice_play_youtube(message: discord.Message, client: discord.Client, config: dict):
     """This command is used to queue up the audio of a youtube video at the given link, to the server's queue."""
 
@@ -345,9 +352,7 @@ async def cmd_voice_play_youtube(message: discord.Message, client: discord.Clien
         try:
             # We're connected to a voice channel, so we try to create the ytdl stream player
             youtube_player = await voice.create_ytdl_player(youtube_url, after=queue_handler)
-        except KeyboardInterrupt as e:
-            raise e
-        except:
+        except youtube_dl.DownloadError:
             # The URL failed to load, it's probably invalid
             await client.send_message(message.channel,
                                       message.author.mention + ", that URL failed to load, is it valid?")
@@ -390,6 +395,8 @@ async def cmd_voice_play_youtube(message: discord.Message, client: discord.Clien
                 youtube_player.title, youtube_player.uploader, voice.channel.name, voice.server.name))
 
 
+@command_decorator.command("voice play search youtube",
+                           "Adds the audio of the first youtube search result from given query to the voice queue.")
 async def cmd_voice_play_youtube_search(message: discord.Message, client: discord.Client, config: dict):
     """This method is used to add a youtube video to the server queue by picking the top search result from youtube on the specified query."""
 
@@ -524,6 +531,7 @@ async def cmd_voice_sound_effect(message: discord.Message, client: discord.Clien
                 youtube_player.title, youtube_player.uploader, voice.channel.name, voice.server.name))
 
 
+@command_decorator.command("voice volume", "Change the volume of the audio that anna plays (0% -> 200%).")
 async def cmd_voice_set_volume(message: discord.Message, client: discord.Client, config: dict):
     """This command is used to change the volume of the audio that anna plays."""
 
@@ -571,6 +579,7 @@ async def cmd_voice_set_volume(message: discord.Message, client: discord.Client,
                                   message.author.mention + ", I'm not connected to any voice channels on this server.")
 
 
+@command_decorator.command("voice toggle", "Toggle (pause or unpause) the audio anna is currently playing.")
 async def cmd_voice_play_toggle(message: discord.Message, client: discord.Client, config: dict):
     """This method is used to toggle playing (pausing and unpausing) the currently playing stream player in that server (if there is one)."""
 
@@ -611,6 +620,7 @@ async def cmd_voice_play_toggle(message: discord.Message, client: discord.Client
                                   message.author.mention + ", I'm not connected to any voice channels on this server.")
 
 
+@command_decorator.command("voice stop", "Stop the audio that anna is currently playing.")
 async def cmd_voice_play_stop(message: discord.Message, client: discord.Client, config: dict):
     """This method is used to stop and remove the currently playing audio from anna in a server. This basically does queue.pop()"""
 
@@ -662,6 +672,7 @@ async def cmd_voice_play_stop(message: discord.Message, client: discord.Client, 
                                   message.author.mention + ", I'm not connected to any voice channels on this server.")
 
 
+@command_decorator.command("queue list", "Lists the current voice queue.")
 async def cmd_voice_queue_list(message: discord.Message, client: discord.Client, config: dict):
     """This method shows the audio current queue for the server that it was called from."""
 
@@ -705,6 +716,8 @@ async def cmd_voice_queue_list(message: discord.Message, client: discord.Client,
                             message.channel)
 
 
+@command_decorator.command("queue remove",
+                           "Removes the specified queue index from the queue, if the index is 0, it effectively acts as a skip command.")
 async def cmd_voice_queue_remove(message: discord.Message, client: discord.Client, config: dict):
     """This method removes a specified stream from the current queue for the server that it was called from."""
 
@@ -771,6 +784,7 @@ async def cmd_voice_queue_remove(message: discord.Message, client: discord.Clien
         return
 
 
+@command_decorator.command("queue clear", "Clears the current voice queue, and stops the currently playing audio.")
 async def cmd_voice_queue_clear(message: discord.Message, client: discord.Client, config: dict):
     """This method clears/resets the current queue for the server that ít was called from."""
 
@@ -808,6 +822,8 @@ async def cmd_voice_queue_clear(message: discord.Message, client: discord.Client
     helpers.log_info("Cleared queue on server {0} ({1}).".format(message.server.name, message.server.id))
 
 
+@command_decorator.command("queue list",
+                           "Pauses the currently playing audio, moves the specified queue index to the front, and starts playing that instead.")
 async def cmd_voice_queue_forward(message: discord.Message, client: discord.Client, config: dict):
     """This method brings a specified stream in the current queue (for the server that it was called from) forward to the front of the queue.
     It does not remove the currently playing stream, that's what the stop command does."""
@@ -880,6 +896,8 @@ async def cmd_voice_queue_forward(message: discord.Message, client: discord.Clie
         return
 
 
+@command_decorator.command("voice roles list", "Lists the roles that are allowed to issue voice commands.",
+                           cmd_special_params=[False, True])
 async def cmd_voice_permissions_list_allowed(message: discord.Message, client: discord.Client, config: dict,
                                              config_nope: dict):
     """This command lists the current allowed voice roles. It takes 2 config parameters because it has special param index 1 enabled, this means it can change the global config object"""
@@ -940,6 +958,9 @@ async def cmd_voice_permissions_list_allowed(message: discord.Message, client: d
     return [config]
 
 
+@command_decorator.command("voice roles add",
+                           "Adds a role to the list of roles that are allowed to issue voice commands.",
+                           cmd_special_params=[False, True])
 async def cmd_voice_permissions_add_allowed(message: discord.Message, client: discord.Client, config: dict,
                                             config_nope: dict):
     """This command adds a role to the current allowed voice roles, and writes it to the config."""
@@ -993,6 +1014,9 @@ async def cmd_voice_permissions_add_allowed(message: discord.Message, client: di
     return [config]
 
 
+@command_decorator.command("voice roles remove",
+                           "Removes a role from the list of roles that are allowed to issue voice commands.",
+                           cmd_special_params=[False, True])
 async def cmd_voice_permissions_remove_allowed(message: discord.Message, client: discord.Client, config: dict,
                                                config_nope: dict):
     """This command removes a role to the current allowed voice roles, and writes it to the config."""

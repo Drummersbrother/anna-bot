@@ -3,7 +3,10 @@ from os import sep as dir_sep
 
 import discord
 
+from ... import command_decorator
 
+
+@command_decorator.command("list referrals", "Sends a copy of the referrals file.", admin=True)
 async def cmd_admin_list_referrals(message: discord.Message, client: discord.Client, config: dict):
     """This function is used to send back the contents of the referrals file to the issuing admin. Mostly for debug purposes."""
 

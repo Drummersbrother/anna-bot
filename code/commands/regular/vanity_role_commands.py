@@ -2,12 +2,14 @@ import asyncio
 
 import discord
 
+from ... import command_decorator
 from ... import helpers
 
 # The vanity commands variable, set to -1 when not initialised
 vanity_commands = -1
 
 
+@command_decorator.command("role list", "PMs you with a list of all available vanity roles for this server.")
 async def list_vanity_roles(message: discord.Message, client: discord.Client, config: dict):
     """This method is used to list all available vanity roles on a server."""
 
@@ -56,6 +58,8 @@ async def list_vanity_roles(message: discord.Message, client: discord.Client, co
         asyncio.sleep(cooldown_duration)
 
 
+@command_decorator.command("role change",
+                           "Use this to change to another vanity role (**role list** to list all available roles).")
 async def change_vanity_role(message: discord.Message, client: discord.Client, config: dict):
     """This function is used to change or add a user to a vanity role of their choosing."""
 
@@ -138,6 +142,7 @@ async def change_vanity_role(message: discord.Message, client: discord.Client, c
             message.author.name, message.author.id))
 
 
+@command_decorator.command("role remove", "Use this to remove all your vanity roles.")
 async def remove_vanity_roles(message: discord.Message, client: discord.Client, config: dict):
     """This function is used to remove all vanity roles for a server from a user."""
 

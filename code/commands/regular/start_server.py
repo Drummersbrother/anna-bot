@@ -4,7 +4,8 @@ import discord
 
 
 async def start_server(message: discord.Message, client: discord.Client, config: dict):
-    """This method is called to handle when someone wants to launch the server (a bat file)"""
+    """This method is called to handle when someone wants to launch the server (a bat file).
+    Note that this doesn't use the command decorator, because the command trigger is config based."""
     if message.content.lower().startswith(
             config["start_server_cmd"]["start_server_command"]) and (
                 config["start_server_cmd"]["start_server_allowed_channel_and_server_pairs"] == [message.channel.name,

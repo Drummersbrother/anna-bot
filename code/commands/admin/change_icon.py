@@ -1,9 +1,13 @@
 import discord
 import requests
 
+from ... import command_decorator
 from ... import helpers
 
 
+@command_decorator.command("change icon",
+                           "Changes the anna-bot's profile icon to an image that the user attaches to the command message.",
+                           admin=True)
 async def cmd_admin_change_icon(message: discord.Message, client: discord.Client, config: dict):
     """This admin command is used to change the icon of the bot user to a specified image."""
 

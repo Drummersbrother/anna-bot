@@ -1,6 +1,10 @@
 import discord
 
+from ... import command_decorator
 
+
+@command_decorator.command("list ids",
+                           "PMs you with a list of all the ids of all the things on the server. This includes roles, users, channels, and the server itself.")
 async def list_ids(message: discord.Message, client: discord.Client, config: dict):
     """This command is used to get a list of all the ids of all things in the server."""
 

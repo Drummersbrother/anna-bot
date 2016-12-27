@@ -1,8 +1,11 @@
 import discord
 
+from ... import command_decorator
 from ... import helpers
 
 
+@command_decorator.command("warn",
+                           "Gives a warning to a user, if they reach the maximum number of warnings, (depending on the server's settings) they are banned or kicked. This command can only be used by certain roles.")
 async def add_warning(message: discord.Message, client: discord.Client, config: dict):
     """This command is used to warn a player and keep adding warnings until the max warning number and then taking action on it"""
 
@@ -149,6 +152,7 @@ async def add_warning(message: discord.Message, client: discord.Client, config: 
                 helpers.log_ob(message.author), helpers.log_ob(target_user), helpers.log_ob(message.server)))
 
 
+@command_decorator.command("unwarn", "Removes a warning from a user. This command can only be used by certain roles.")
 async def remove_warning(message: discord.Message, client: discord.Client, config: dict):
     """This command is used to remove a warning from a player if they have one"""
 

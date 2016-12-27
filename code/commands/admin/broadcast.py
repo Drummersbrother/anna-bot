@@ -1,8 +1,11 @@
 import discord
 
+from ... import command_decorator
 from ... import helpers
 
 
+@command_decorator.command("broadcast", "Broadcasts a message to all the channels that anna-bot has access to.",
+                           admin=True)
 async def cmd_admin_broadcast(message: discord.Message, client: discord.Client, config: dict):
     """This method is used to handle admins wanting to broadcast a message to all servers and channel that anna-bot is in."""
 

@@ -1,6 +1,9 @@
 import discord
 
+from ... import command_decorator
 
+
+@command_decorator.command("whoru", "Use this if you want an explanation as to what anna-bot is.")
 async def who_r_u(message: discord.Message, client: discord.Client, config: dict):
     """This method is called to handle someone wanting to know who/what anna-bot is."""
 

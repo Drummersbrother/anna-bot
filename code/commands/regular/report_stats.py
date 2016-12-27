@@ -5,9 +5,11 @@ from os import sep as dir_sep
 
 import discord
 
+from ... import command_decorator
 from ... import helpers
 
 
+@command_decorator.command("anna-stats", "Report some stats about anna.")
 async def cmd_report_stats(message: discord.Message, client: discord.Client, config: dict):
     """This method is used to handle reporting stats about the bot to the user who used the anna stats command."""
 

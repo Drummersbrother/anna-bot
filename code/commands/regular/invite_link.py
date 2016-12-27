@@ -2,7 +2,8 @@ import discord
 
 
 async def invite_link(message: discord.Message, client: discord.Client, config: dict):
-    """This method is called to handle someone typing the message '!invite'."""
+    """This method is called to handle someone typing the message '!invite'.
+    Note that this doesn't use the regular command decorator, because it uses config-based formatting in the helptext."""
 
     # Telling the user that we're working on it
     await client.send_message(message.channel,

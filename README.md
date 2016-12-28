@@ -5,7 +5,7 @@ A discord bot created for the https://mcevalonia.com minecraft server's discord 
 ### Dependencies:
 ```
 python3.5
-discord.py > 0.16 (https://github.com/Rapptz/discord.py)
+discord.py >= 0.16 (https://github.com/Rapptz/discord.py)
 youtube_dl
 ```
 

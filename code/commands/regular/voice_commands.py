@@ -822,7 +822,7 @@ async def cmd_voice_queue_clear(message: discord.Message, client: discord.Client
     helpers.log_info("Cleared queue on server {0} ({1}).".format(message.server.name, message.server.id))
 
 
-@command_decorator.command("queue list",
+@command_decorator.command("queue forward",
                            "Pauses the currently playing audio, moves the specified queue index to the front, and starts playing that instead.")
 async def cmd_voice_queue_forward(message: discord.Message, client: discord.Client, config: dict):
     """This method brings a specified stream in the current queue (for the server that it was called from) forward to the front of the queue.

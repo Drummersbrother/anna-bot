@@ -323,9 +323,9 @@ async def cmd_leave_voice_channel(message: discord.Message, client: discord.Clie
                                   message.author.mention + ", I'm not connected to a voice channel on this server, if you want me to connect to one, please use the \"@anna-bot voice join CHANNELNAME\" command.")
 
 
-@command_decorator.command("voice play youtube",
-                           "Adds the audio of the given youtube link to the voice queue. This might work with other types of video streaming sites, but I give no guarantee.")
-async def cmd_voice_play_youtube(message: discord.Message, client: discord.Client, config: dict):
+@command_decorator.command("voice play link",
+                           "Adds the audio of the given link to the voice queue. The only platform that is guaranteed to work is youtube but it should work with all the sites listed here: https://rg3.github.io/youtube-dl/supportedsites.html , but I give no guarantees.")
+async def cmd_voice_play_link(message: discord.Message, client: discord.Client, config: dict):
     """This command is used to queue up the audio of a youtube video at the given link, to the server's queue."""
 
     # We check if the issuing user has the proper permissions on this server
@@ -334,7 +334,7 @@ async def cmd_voice_play_youtube(message: discord.Message, client: discord.Clien
         return
 
     # We parse the url from the command message
-    youtube_url = helpers.remove_anna_mention(client, message).strip()[19:]
+    youtube_url = helpers.remove_anna_mention(client, message).strip()[len("voice play link "):]
 
     # We get the voice client on the server in which the command was issued
     voice = client.voice_client_in(message.server)
@@ -351,7 +351,9 @@ async def cmd_voice_play_youtube(message: discord.Message, client: discord.Clien
         # We need to catch some errors
         try:
             # We're connected to a voice channel, so we try to create the ytdl stream player
-            youtube_player = await voice.create_ytdl_player(youtube_url, after=queue_handler)
+            # I found these ytdl options here: https://github.com/rg3/youtube-dl/blob/master/youtube_dl/YoutubeDL.py https://github.com/rg3/youtube-dl/blob/e7ac722d6276198c8b88986f06a4e3c55366cb58/README.md
+            youtube_player = await voice.create_ytdl_player(youtube_url, ytdl_options={"noplaylist": True},
+                                                            after=queue_handler)
         except youtube_dl.DownloadError:
             # The URL failed to load, it's probably invalid
             await client.send_message(message.channel,
@@ -359,6 +361,14 @@ async def cmd_voice_play_youtube(message: discord.Message, client: discord.Clien
 
             # We're done here
             return
+        except:
+            # Unknown error
+            await client.send_message(message.channel,
+                                      message.author.mention + ", I got an unrecognised error while loading.")
+
+            # We reraise
+            raise
+
 
         # We append the streamplayer to the server's queue
         server_and_queue_dict[message.server.id].append(youtube_player)
@@ -370,14 +380,16 @@ async def cmd_voice_play_youtube(message: discord.Message, client: discord.Clien
             # Telling the user that we're playing the video
             await client.send_message(message.channel,
                                       message.author.mention + (
-                                          ", I added and started playing, youtube video with title: *{0}*, uploaded by: *{1}* to the queue. (Use **\"" + client.user.mention + " queue list\"** to see the current queue)").format(
+                                          ", I added and started playing, video with title: *{0}*, uploaded by: *{1}* to the queue. (Use **\"" + client.user.mention + " queue list\"** to see the current queue)").format(
                                           *helpers.remove_discord_formatting(youtube_player.title,
-                                                                             youtube_player.uploader)))
+                                                                             (
+                                                                             "N/A" if youtube_player.uploader is None else youtube_player.uploader))))
 
             # We log what video title and uploader the played video has
             helpers.log_info(
                 "Added youtube and started playing, video with title: \"{0}\", uploaded by: \"{1}\", to queue in voice channel: \"{2}\" on server: \"{3}\"".format(
-                    youtube_player.title, youtube_player.uploader, voice.channel.name, voice.server.name))
+                    youtube_player.title, ("N/A" if youtube_player.uploader is None else youtube_player.uploader),
+                    voice.channel.name, voice.server.name))
 
             # We're done here
             return
@@ -391,7 +403,7 @@ async def cmd_voice_play_youtube(message: discord.Message, client: discord.Clien
 
         # We log what video title and uploader the played video has
         helpers.log_info(
-            "Added youtube video with title: \"{0}\", uploaded by: \"{1}\", to queue in voice channel: \"{2}\" on server: \"{3}\"".format(
+            "Added video with title: \"{0}\", uploaded by: \"{1}\", to queue in voice channel: \"{2}\" on server: \"{3}\"".format(
                 youtube_player.title, youtube_player.uploader, voice.channel.name, voice.server.name))
 
 
@@ -442,7 +454,8 @@ async def cmd_voice_play_youtube_search(message: discord.Message, client: discor
         try:
             # We're connected to a voice channel, so we try to create the ytdl stream player with the search result we got
             youtube_player = await voice.create_ytdl_player(
-                "http://www.youtube.com/watch?v={0}".format(search_results[0]), after=queue_handler)
+                "http://www.youtube.com/watch?v={0}".format(search_results[0]), ytdl_options={"noplaylist": True},
+                after=queue_handler)
         except youtube_dl.utils.ExtractorError:
             # The URL failed to load, it's probably invalid
             await client.send_message(message.channel,
@@ -705,7 +718,8 @@ async def cmd_voice_queue_list(message: discord.Message, client: discord.Client,
         # We clear the formatting of almost all the youtube info, but then we insert the player url in the proper slot since youtube urls can have underscored in them,
         # and underscores are discord formatting, so we don't want that field to get cleaned
         fields = helpers.remove_discord_formatting(str(inx), player.title, player.uploader,
-                                                   str(player.duration), player.description)
+                                                   str(player.duration),
+                                                   player.description[:300] + " \u2026")  # Unicode horizontal ellipsis
         fields.insert(2, ("*. **Currently playing this**" if inx == 0 else "*"))
         fields.insert(4, player.url.replace("_", "\\_"))
         queue_message += "-------------------------\n\tNr. **{0}**, *{1}{2}\nBy *{3}* at URL __{4}__\nDuration: {5} seconds.\nDescription:\n\t{6}\n-------------------------\n".format(

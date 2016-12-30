@@ -24,16 +24,20 @@ client = discord.Client(cache_auth=False)
 
 
 # TODO Handle group calls and messages, and/or move to the commands extension
+# TODO add json playlists playing and handling commands, maybe an upload command?
+# TODO limit the shown length of youtube descriptions
+# TODO reduce ffmpeg cpu usage when playing videos?
 
 @client.event
 async def on_message(message: discord.Message):
     # We wait for a split second so we can be assured that ignoring of messages and other things have finished before the message is processed here
-
     # We make sure the message is a regular one
     if message.type != discord.MessageType.default:
         return
 
     await asyncio.sleep(0.1)
+
+    global config
 
     # The weird mention for the bot user (mention code starts with an exclamation mark instead of just the user ID), the string manipulation is due to mention strings not being the same all the time
     client_mention = client.user.mention[:2] + "!" + client.user.mention[2:]
@@ -135,7 +139,7 @@ async def on_message(message: discord.Message):
                     break
 
             # Checking if the issuing user is in the admin list
-            if int(message.author.id) in config["somewhat_weird_shit"]["admin_user_ids"]:
+            if helpers.is_member_anna_admin(message.author, config):
 
                 # Going through all the admin commands we've specified and checking if they match the message
                 for command in admin_commands:
@@ -209,7 +213,7 @@ async def on_message(message: discord.Message):
                         break
 
                 # Checking if the issuing user is in the admin list
-                if int(message.author.id) in config["somewhat_weird_shit"]["admin_user_ids"]:
+                if helpers.is_member_anna_admin(message.author, config):
                     # Going through all the admin commands we've specified and checking if they match the message
                     for command in admin_commands:
                         if helpers.remove_anna_mention(client, message).lower().strip().startswith(

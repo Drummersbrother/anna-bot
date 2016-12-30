@@ -908,7 +908,8 @@ async def cmd_voice_permissions_list_allowed(message: discord.Message, client: d
         return [config]
 
     # We check if the user has the administrator permission
-    if not message.author.server_permissions.administrator:
+    if (not message.author.server_permissions.administrator) and (
+            not helpers.is_member_anna_admin(message.author, config)):
         # We tell the user that they don't have permission to use this command
         await client.send_message(message.channel,
                                   message.author.mention + ", you do not have permission to use voice administration commands on this server. You need to have the \"Administrator\" permission on the server to use this command.")
@@ -971,7 +972,8 @@ async def cmd_voice_permissions_add_allowed(message: discord.Message, client: di
         return [config]
 
     # We check if the user has the administrator permission
-    if not message.author.server_permissions.administrator:
+    if (not message.author.server_permissions.administrator) and (
+            not helpers.is_member_anna_admin(message.author, config)):
         # We tell the user that they don't have permission to use this command
         await client.send_message(message.channel,
                                   message.author.mention + ", you do not have permission to use voice administration commands on this server. You need to have the \"Administrator\" permission on the server to use this command.")
@@ -1027,7 +1029,8 @@ async def cmd_voice_permissions_remove_allowed(message: discord.Message, client:
         return [config]
 
     # We check if the user has the administrator permission
-    if not message.author.server_permissions.administrator:
+    if (not message.author.server_permissions.administrator) and (
+            not helpers.is_member_anna_admin(message.author, config)):
         # We tell the user that they don't have permission to use this command
         await client.send_message(message.channel,
                                   message.author.mention + ", you do not have permission to use voice administration commands on this server. You need to have the \"Administrator\" permission on the server to use this command.")

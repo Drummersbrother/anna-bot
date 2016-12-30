@@ -177,7 +177,7 @@ def remove_anna_mention(client: discord.Client, message):
     return cleaned_message
 
 
-def is_message_command(message: discord.Message, client):
+def is_message_command(message: discord.Message, client: discord.Client):
     """This function is used to check whether a message is trying to issue an anna-bot command"""
 
     # The weird mention for the bot user, the string manipulation is due to mention strings not being the same all the time
@@ -208,6 +208,11 @@ def get_role_from_mention(member: discord.Member, string: str):
         if role_id_string in [x.id for x in member.server.roles]:
             # We search the member's server's roles for the string role id
             return discord.utils.get(member.server.roles, id=role_id_string)
+
+
+def is_member_anna_admin(member: discord.Member, passed_config: dict):
+    """This method checks if a user is an anna-bot admin or not, returns True if they are, False otherwise."""
+    return int(member.id) in passed_config["somewhat_weird_shit"]["admin_user_ids"]
 
 
 async def send_long(client: discord.Client, message: str, channel: discord.Channel):

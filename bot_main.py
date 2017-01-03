@@ -14,19 +14,17 @@ import code.commands.regular.list_ids
 import code.commands.regular.report_stats
 import code.commands.regular.start_server
 import code.commands.regular.vanity_role_commands
-import code.commands.regular.voice_commands
+import code.commands.regular.voice_commands_playlist
 import code.commands.regular.warning_commands
 import code.commands.regular.who_r_u
 from code import helpers
 
-# Setting up the client object
-client = discord.Client(cache_auth=False)
-
+if __name__ == "__main__":
+    # Setting up the client object
+    client = helpers.actual_client
 
 # TODO Handle group calls and messages, and/or move to the commands extension
-# TODO add json playlists playing and handling commands, maybe an upload command?
-# TODO limit the shown length of youtube descriptions
-# TODO reduce ffmpeg cpu usage when playing videos?
+# TODO add option to disable the add-bot command
 
 @client.event
 async def on_message(message: discord.Message):
@@ -699,84 +697,87 @@ def set_special_param(index: int, value):
         config = value
 
 
-# Logging that we're loading the config
-helpers.log_info("Loading the config file...")
+if __name__ == "__main__":
 
-# The config object
-config = {}
+    # Logging that we're loading the config
+    helpers.log_info("Loading the config file...")
 
-# Loading the config file and then parsing it as json and storing it in a python object
-with open("config.json", mode="r", encoding="utf-8") as config_file:
-    config = json.load(config_file)
+    # The config object
+    config = {}
 
-# We store the bot start time in the volatile stats section
-config["stats"]["volatile"]["start_time"] = time.time()
+    # Loading the config file and then parsing it as json and storing it in a python object
+    with open("config.json", mode="r", encoding="utf-8") as config_file:
+        config = json.load(config_file)
 
-# We write the modified config back to the file
-with open("config.json", mode="w", encoding="utf-8") as config_file:
-    json.dump(config, config_file, indent=2, sort_keys=False)
+    # We store the bot start time in the volatile stats section
+    config["stats"]["volatile"]["start_time"] = time.time()
 
-# Logging that we're done loading the config
-helpers.log_info("Done loading the config")
+    # We write the modified config back to the file
+    with open("config.json", mode="w", encoding="utf-8") as config_file:
+        json.dump(config, config_file, indent=2, sort_keys=False)
 
-commands = code.command_decorator.get_command_lists()
+    # Logging that we're done loading the config
+    helpers.log_info("Done loading the config")
 
-# The commands people can use and the method that will be called when a command is used
-# The special params are defined in the on_message function, but they basically just pass all the special params as KW arguments
-# Most commands use the helpers.command(command_trigger, description, special_params, admin) decorator, but these cannot use that since they have config based command parameters
-public_commands = [dict(command="invite", method=code.commands.regular.invite_link.invite_link,
-                        helptext="Generate an invite link to the current channel, the link will be valid for " + str(
-                            config["invite_cmd"]["invite_valid_time_min"] if config["invite_cmd"][
-                                                                                 "invite_valid_time_min"] > 0 else "infinite") + " minutes and " + str(
-                            config["invite_cmd"]["invite_max_uses"] if config["invite_cmd"][
-                                                                           "invite_max_uses"] > 0 else "infinite") + " use[s].",
-                        special_params=[False, False]),
-                   dict(command=config["start_server_cmd"]["start_server_command"],
-                        method=code.commands.regular.start_server.start_server,
-                        helptext="Start the minecraft server (if the channel and users have the necessary permissions to do so).",
-                        special_params=[False, False])
-                   ]
+    commands = code.command_decorator.get_command_lists()
 
-# The commands authorised users can use, these are some pretty powerful commands, so be careful with which users you give administrative access to the bot to
-admin_commands = []
+    # The commands people can use and the method that will be called when a command is used
+    # The special params are defined in the on_message function, but they basically just pass all the special params as KW arguments
+    # Most commands use the helpers.command(command_trigger, description, special_params, admin) decorator, but these cannot use that since they have config based command parameters
+    public_commands = [dict(command="invite", method=code.commands.regular.invite_link.invite_link,
+                            helptext="Generate an invite link to the current channel, the link will be valid for " + str(
+                                config["invite_cmd"]["invite_valid_time_min"] if config["invite_cmd"][
+                                                                                     "invite_valid_time_min"] > 0 else "infinite") + " minutes and " + str(
+                                config["invite_cmd"]["invite_max_uses"] if config["invite_cmd"][
+                                                                               "invite_max_uses"] > 0 else "infinite") + " use[s].",
+                            special_params=[False, False]),
+                       dict(command=config["start_server_cmd"]["start_server_command"],
+                            method=code.commands.regular.start_server.start_server,
+                            helptext="Start the minecraft server (if the channel and users have the necessary permissions to do so).",
+                            special_params=[False, False])
+                       ]
 
-# We extend the lists with the decorator commands
-public_commands.extend(commands[0])
-admin_commands.extend(commands[1])
+    # The commands authorised users can use, these are some pretty powerful commands, so be careful with which users you give administrative access to the bot to
+    admin_commands = []
 
-# The functions to call when someone joins the server, these get passed the member object of the user who joined
-join_functions = [join_welcome_message,
-                  join_automatic_role,
-                  join_referral_asker]
+    # We extend the lists with the decorator commands
+    public_commands.extend(commands[0])
+    admin_commands.extend(commands[1])
 
-# The list of message ids (this list will fill and empty) that the command checker should ignore
-ignored_command_message_ids = []
+    # The functions to call when someone joins the server, these get passed the member object of the user who joined
+    join_functions = [join_welcome_message,
+                      join_automatic_role,
+                      join_referral_asker]
 
-# The list of tuples of voice stream players and server ids
-server_and_stream_players = []
+    # The list of message ids (this list will fill and empty) that the command checker should ignore
+    ignored_command_message_ids = []
 
-# Logging that we're starting the bot
-helpers.log_info("Anna-bot is now logging in (you'll notice if we get any errors)")
+    # The list of tuples of voice stream players and server ids
+    server_and_stream_players = []
 
-# Storing the time at which the bot was started
-config["stats"]["volatile"]["start_time"] = time.time()
+    # Logging that we're starting the bot
+    helpers.log_info("Anna-bot is now logging in (you'll notice if we get any errors)")
 
-try:
-    # Starting and authenticating the bot
-    client.run(config["credentials"]["token"])
-except:
-    # How did we exit?
-    helpers.log_info("Did not get user interrupt, but still got an error, re-raising...")
-    raise
-else:
-    # No error but we exited
-    helpers.log_info("Client exited, but we didn't get an error, probably CTRL+C or command exit...")
+    # Storing the time at which the bot was started
+    config["stats"]["volatile"]["start_time"] = time.time()
 
-# Calculating and formatting how long the bot was online so we can log it, this is on multiple statements for clarity
-end_time = time.time()
-uptime_secs_noformat = (end_time - config["stats"]["volatile"]["start_time"]) // 1
-formatted_uptime = helpers.get_formatted_duration_fromtime(uptime_secs_noformat)
+    try:
+        # Starting and authenticating the bot
+        client.run(config["credentials"]["token"])
+    except:
+        # How did we exit?
+        helpers.log_info("Did not get user interrupt, but still got an error, re-raising...")
+        raise
+    else:
+        # No error but we exited
+        helpers.log_info("Client exited, but we didn't get an error, probably CTRL+C or command exit...")
 
-# Logging that we've stopped the bot
-helpers.log_info(
-    "Anna-bot has now exited (you'll notice if we got any errors), we have been up for {0}.".format(formatted_uptime))
+    # Calculating and formatting how long the bot was online so we can log it, this is on multiple statements for clarity
+    end_time = time.time()
+    uptime_secs_noformat = (end_time - config["stats"]["volatile"]["start_time"]) // 1
+    formatted_uptime = helpers.get_formatted_duration_fromtime(uptime_secs_noformat)
+
+    # Logging that we've stopped the bot
+    helpers.log_info(
+        "Anna-bot has now exited (you'll notice if we got any errors), we have been up for {0}.".format(
+            formatted_uptime))

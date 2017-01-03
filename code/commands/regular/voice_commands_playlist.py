@@ -1,3 +1,5 @@
+import asyncio
+import os.path
 import re
 import urllib.parse
 import urllib.request
@@ -10,8 +12,9 @@ from ... import helpers
 
 """This file handles the voice command interactions, state, and commands."""
 
-# The dict of lists of stream players, where [0] is the currently playing, and the other ones are ordered correspondingly)
-server_and_queue_dict = {}
+# The dict which describes the audio playing in a server, of form {"server id" : {"playlist_info" : {"is_playing" : Bool, "playlist_name" : str, "current_index" : int}, "queue" : [streamplayer, ...]}, ...}
+# The current player for the playlist (if enabled) will be queue[0]
+server_queue_info_dict = {}
 
 
 @command_decorator.command("voice join channel", "Joins the specified voice channel if anna can access it.",
@@ -63,14 +66,21 @@ async def cmd_join_voice_channel(message: discord.Message, client: discord.Clien
 
                 # We print the alternatives to the user so they can message us back with the channel they want us to join
                 await client.send_message(message.channel,
-                                          message.author.mention + ", there are %i voice channels on this server with that name, please message me the number of the channel that you want me to join within 1 minute (e.g. \"@anna-bot 0\"):\n--------------------" % len(
-                                              channel_candidates) + "".join([(
-                                                                                 "\nNumber %s:\n\t%s users currently connected.\n--------------------" % (
-                                                                                     str(candidate[1]), str(len(
-                                                                                         candidate[
-                                                                                             0].voice_members))))
-                                                                             for candidate in
-                                                                             channel_candidates]))
+                                          message.author.mention + ", there are %i voice channels on this server with that name, please message me the number of the channel that you want me to join within 1 minute (e.g. \"%s 0\"):\n--------------------" % (
+                                              len(
+                                                  channel_candidates), message.server.me.mention) + "".join([(
+                                                                                                                 "\nNumber %s:\n\t%s users currently connected.\n--------------------" % (
+                                                                                                                     str(
+                                                                                                                         candidate[
+                                                                                                                             1]),
+                                                                                                                     str(
+                                                                                                                         len(
+                                                                                                                             candidate[
+                                                                                                                                 0].voice_members))))
+                                                                                                             for
+                                                                                                             candidate
+                                                                                                             in
+                                                                                                             channel_candidates]))
 
                 response_message = await client.wait_for_message(timeout=60, author=message.author,
                                                                  channel=message.channel,
@@ -150,14 +160,21 @@ async def cmd_join_voice_channel(message: discord.Message, client: discord.Clien
 
                 # We print the alternatives to the user so they can message us back with the channel they want us to join
                 await client.send_message(message.channel,
-                                          message.author.mention + ", there are %i voice channels on this server with that name, please message me the number of the channel that you want me to join within 1 minute (e.g. \"@anna-bot 0\"):\n--------------------" % len(
-                                              channel_candidates) + "".join([(
-                                                                                 "\nNumber %s:\n\t%s users currently connected.\n--------------------" % (
-                                                                                     str(candidate[1]), str(len(
-                                                                                         candidate[
-                                                                                             0].voice_members))))
-                                                                             for candidate in
-                                                                             channel_candidates]))
+                                          message.author.mention + ", there are %i voice channels on this server with that name, please message me the number of the channel that you want me to join within 1 minute (e.g. \"%s 0\"):\n--------------------" % (
+                                              len(
+                                                  channel_candidates), message.server.me.mention) + "".join([(
+                                                                                                                 "\nNumber %s:\n\t%s users currently connected.\n--------------------" % (
+                                                                                                                     str(
+                                                                                                                         candidate[
+                                                                                                                             1]),
+                                                                                                                     str(
+                                                                                                                         len(
+                                                                                                                             candidate[
+                                                                                                                                 0].voice_members))))
+                                                                                                             for
+                                                                                                             candidate
+                                                                                                             in
+                                                                                                             channel_candidates]))
 
                 response_message = await client.wait_for_message(timeout=60, author=message.author,
                                                                  channel=message.channel,
@@ -234,7 +251,8 @@ async def cmd_join_voice_channel(message: discord.Message, client: discord.Clien
     await client.join_voice_channel(voice_channel)
 
     # We add an entry for this server to the queue dict
-    server_and_queue_dict[message.server.id] = []
+    server_queue_info_dict[message.server.id] = {
+        "playlist_info": {"is_playing": False, "playlist_name": "", "current_index": -1}, "queue": []}
 
     return ignored_command_message_ids
 
@@ -286,7 +304,8 @@ async def cmd_join_self_voice_channel(message: discord.Message, client: discord.
     await client.join_voice_channel(member_channel)
 
     # We add an entry for this server to the queue dict
-    server_and_queue_dict[message.server.id] = []
+    server_queue_info_dict[message.server.id] = {
+        "playlist_info": {"is_playing": False, "playlist_name": "", "current_index": -1}, "queue": []}
 
 
 @command_decorator.command("voice leave", "Leaves the voice channel anna is connected to")
@@ -306,13 +325,13 @@ async def cmd_leave_voice_channel(message: discord.Message, client: discord.Clie
                                       message.server).channel.name)
 
         # We check if there are any stream players currently playing on that voice channel
-        for stream in server_and_queue_dict[message.server.id]:
-            # We stop the player, but we also set the volume to 0 to prevent the queuehandler to make wierd noises
+        for stream in server_queue_info_dict[message.server.id]["queue"]:
+            # We stop the player, but we also set the volume to 0 to prevent the queuehandler from making weird noises
             stream.volume = 0
             stream.stop()
 
-        # We remove the stopped queue
-        del server_and_queue_dict[message.server.id]
+        # We remove the stopped server's voice info
+        del server_queue_info_dict[message.server.id]
 
         # We leave the voice channel that we're connected to on that server
         await client.voice_client_in(message.server).disconnect()
@@ -320,7 +339,8 @@ async def cmd_leave_voice_channel(message: discord.Message, client: discord.Clie
     else:
         # We aren't connected to a voice channel on the current server, the user is just being an idiot
         await client.send_message(message.channel,
-                                  message.author.mention + ", I'm not connected to a voice channel on this server, if you want me to connect to one, please use the \"@anna-bot voice join CHANNELNAME\" command.")
+                                  message.author.mention + ", I'm not connected to a voice channel on this server, if you want me to connect to one, please use the \"{0} voice join channel CHANNELNAME\" command.".format(
+                                      message.server.me.mention))
 
 
 @command_decorator.command("voice play link",
@@ -369,42 +389,39 @@ async def cmd_voice_play_link(message: discord.Message, client: discord.Client, 
             # We reraise
             raise
 
-
         # We append the streamplayer to the server's queue
-        server_and_queue_dict[message.server.id].append(youtube_player)
+        server_queue_info_dict[message.server.id]["queue"].append(youtube_player)
 
         # If the server doesn't have any currently playing stream players, we start the new stream player
-        if len(server_and_queue_dict[message.server.id]) == 1:
+        if len(server_queue_info_dict[message.server.id]["queue"]) == 1:
             youtube_player.start()
 
             # Telling the user that we're playing the video
             await client.send_message(message.channel,
                                       message.author.mention + (
-                                          ", I added and started playing, video with title: *{0}*, uploaded by: *{1}* to the queue. (Use **\"" + client.user.mention + " queue list\"** to see the current queue)").format(
-                                          *helpers.remove_discord_formatting(youtube_player.title,
-                                                                             (
-                                                                             "N/A" if youtube_player.uploader is None else youtube_player.uploader))))
+                                          ", I added to queue and started playing, audio with title: *{0}*, uploaded by: *{1}*. (Use **\"" + client.user.mention + " queue list\"** to see the current queue)").format(
+                                          *helpers.remove_discord_formatting(youtube_player.title, (
+                                              "N/A" if youtube_player.uploader is None else youtube_player.uploader))))
 
-            # We log what video title and uploader the played video has
+            # We log what video title and uploader the played audio has
             helpers.log_info(
-                "Added youtube and started playing, video with title: \"{0}\", uploaded by: \"{1}\", to queue in voice channel: \"{2}\" on server: \"{3}\"".format(
+                "Added to queue and started playing, audio with title: \"{0}\", uploaded by: \"{1}\", in voice channel: \"{2}\" on server: \"{3}\"".format(
                     youtube_player.title, ("N/A" if youtube_player.uploader is None else youtube_player.uploader),
                     voice.channel.name, voice.server.name))
 
-            # We're done here
-            return
+        else:
 
-        # Telling the user that we've added the video to the queue
-        await client.send_message(message.channel,
-                                  message.author.mention + (
-                                      ", I added youtube video with title: *{0}*, uploaded by: *{1}* to the queue. (Use **\"" + client.user.mention + " queue list\"** to see the current queue)").format(
-                                      *helpers.remove_discord_formatting(youtube_player.title,
-                                                                         youtube_player.uploader)))
+            # Telling the user that we've added the audio to the queue
+            await client.send_message(message.channel,
+                                      message.author.mention + (
+                                          ", I added audio with title: *{0}*, uploaded by: *{1}* to the queue. (Use **\"" + client.user.mention + " queue list\"** to see the current queue)").format(
+                                          *helpers.remove_discord_formatting(youtube_player.title,
+                                                                             youtube_player.uploader)))
 
-        # We log what video title and uploader the played video has
-        helpers.log_info(
-            "Added video with title: \"{0}\", uploaded by: \"{1}\", to queue in voice channel: \"{2}\" on server: \"{3}\"".format(
-                youtube_player.title, youtube_player.uploader, voice.channel.name, voice.server.name))
+            # We log what video title and uploader the played audio has
+            helpers.log_info(
+                "Added audio with title: \"{0}\", uploaded by: \"{1}\", to queue in voice channel: \"{2}\" on server: \"{3}\"".format(
+                    youtube_player.title, youtube_player.uploader, voice.channel.name, voice.server.name))
 
 
 @command_decorator.command("voice play search youtube",
@@ -418,7 +435,7 @@ async def cmd_voice_play_youtube_search(message: discord.Message, client: discor
         return
 
     # We parse the url from the command message
-    user_query = helpers.remove_anna_mention(client, message).strip()[len(" voice play search youtube"):]
+    user_query = helpers.remove_anna_mention(client, message).strip()[len("voice play search youtube "):]
 
     # We get the voice client on the server in which the command was issued
     voice = client.voice_client_in(message.server)
@@ -465,10 +482,10 @@ async def cmd_voice_play_youtube_search(message: discord.Message, client: discor
             return
 
         # We append the streamplayer to the server's queue
-        server_and_queue_dict[message.server.id].append(youtube_player)
+        server_queue_info_dict[message.server.id]["queue"].append(youtube_player)
 
         # If the server doesn't have any currently playing stream players, we start the new stream player
-        if len(server_and_queue_dict[message.server.id]) == 1:
+        if len(server_queue_info_dict[message.server.id]["queue"]) == 1:
             youtube_player.start()
 
             # Telling the user that we're playing the video
@@ -483,20 +500,19 @@ async def cmd_voice_play_youtube_search(message: discord.Message, client: discor
                 "Added youtube and started playing, video with title: \"{0}\", uploaded by: \"{1}\", to queue in voice channel: \"{2}\" on server: \"{3}\"".format(
                     youtube_player.title, youtube_player.uploader, voice.channel.name, voice.server.name))
 
-            # We're done here
-            return
+        else:
 
-        # Telling the user that we've added the video to the queue
-        await client.send_message(message.channel,
-                                  message.author.mention + (
-                                      ", I added youtube video with title: *{0}*, uploaded by: *{1}* to the queue. (Use **\"" + client.user.mention + " queue list\"** to see the current queue)").format(
-                                      *helpers.remove_discord_formatting(youtube_player.title,
-                                                                         youtube_player.uploader)))
+            # Telling the user that we've added the video to the queue
+            await client.send_message(message.channel,
+                                      message.author.mention + (
+                                          ", I added youtube video with title: *{0}*, uploaded by: *{1}* to the queue. (Use **\"" + client.user.mention + " queue list\"** to see the current queue)").format(
+                                          *helpers.remove_discord_formatting(youtube_player.title,
+                                                                             youtube_player.uploader)))
 
-        # We log what video title and uploader the played video has
-        helpers.log_info(
-            "Added youtube video with title: \"{0}\", uploaded by: \"{1}\", to queue in voice channel: \"{2}\" on server: \"{3}\"".format(
-                youtube_player.title, youtube_player.uploader, voice.channel.name, voice.server.name))
+            # We log what video title and uploader the played video has
+            helpers.log_info(
+                "Added youtube video with title: \"{0}\", uploaded by: \"{1}\", to queue in voice channel: \"{2}\" on server: \"{3}\"".format(
+                    youtube_player.title, youtube_player.uploader, voice.channel.name, voice.server.name))
 
 
 # TODO remake
@@ -544,6 +560,203 @@ async def cmd_voice_sound_effect(message: discord.Message, client: discord.Clien
                 youtube_player.title, youtube_player.uploader, voice.channel.name, voice.server.name))
 
 
+@command_decorator.command("voice playlist play",
+                           "Starts playing a playlist, and puts the playlist at the front of the queue.")
+async def cmd_voice_playlist_play(message: discord.Message, client: discord.Client, config: dict):
+    """This command plays the specified playlist file if it exists."""
+
+    # We check if the user is allowed to use voice commands
+    if not await permission_checker(message, client, config):
+        # They're not allowed to use voice commands
+        return
+
+    # We check if we're connected to a voice channel / if we've setup a voice info entry for the server
+    if not client.is_voice_connected(message.server):
+        # We tell the user that we aren't connected to a voice channel in that server
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I'm not connected to a voice channel on this server, if you want me to connect to one, please use the \"{0} voice join channel CHANNELNAME\" command.".format(
+                                      message.server.me.mention))
+        # We're done here
+        return
+
+    # We check if the server is using playlists
+    if server_queue_info_dict[message.server.id]["playlist_info"]["is_playing"]:
+        # We tell the user that they need to disable the playlist before they start playing another one
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I'm already playing a playlist on this server, use \"{0} voice playlist stop\" to stop playing that playlist.".format(
+                                      message.server.me.mention))
+
+        # We're done here
+        return
+
+    # We parse the user input / specified playlist
+    user_playlist = helpers.remove_anna_mention(client, message)[len("voice playlist play "):]
+    # We remove unsafe chars from the user specified playlist filename
+    # Note that we don't allow dots/full stops in the file name, this is so we don't need to use regular expressions to remove multiple dots in a row (try ../../../../kek.txt)
+    user_playlist = "".join(c for c in user_playlist if c.isalnum() or c in (' ', '_')).rstrip()
+
+    # We check if we can read the playlist file
+    try:
+        with open(os.path.join("playlists", user_playlist), mode="r", encoding="utf-8") as playlist_file:
+            # We can read the file, so we store the current volume of the first thing in the queue
+            last_volume = 1 if len(server_queue_info_dict[message.server.id]["queue"]) == 0 else \
+            server_queue_info_dict[message.server.id]["queue"][0].volume
+
+            # We get the voice client in the issuing server
+            voice = client.voice_client_in(message.server)
+
+            # We try to create a ytdl player with the link in the playlist file
+            # We need to catch some errors
+            try:
+                # We're connected to a voice channel, so we try to create the ytdl stream player
+                # I found these ytdl options here: https://github.com/rg3/youtube-dl/blob/master/youtube_dl/YoutubeDL.py https://github.com/rg3/youtube-dl/blob/e7ac722d6276198c8b88986f06a4e3c55366cb58/README.md
+                youtube_player = await voice.create_ytdl_player(playlist_file.readline().strip(),
+                                                                ytdl_options={"noplaylist": True},
+                                                                after=queue_handler)
+            except youtube_dl.DownloadError:
+                # The URL failed to load, it's probably invalid
+                await client.send_message(message.channel,
+                                          message.author.mention + ", I wasn't able to load the first URL in the playlist, is it valid?")
+
+                # We're done here
+                return
+            except:
+                # Unknown error
+                await client.send_message(message.channel,
+                                          message.author.mention + ", I got an unrecognised error while loading the first URL in the playlist.")
+
+                # We reraise
+                raise
+
+            # We set the volume of the new player
+            youtube_player.volume = last_volume
+
+            # We pause the current player in the queue (if there is one)
+            if len(server_queue_info_dict[message.server.id]["queue"]) > 0:
+                server_queue_info_dict[message.server.id]["queue"][0].pause()
+
+            # We insert the streamplayer in the front of the queue
+            server_queue_info_dict[message.server.id]["queue"].insert(0, youtube_player)
+
+            # We update the server info dict for using playlists
+            server_queue_info_dict[message.server.id]["playlist_info"]["is_playing"] = True
+            server_queue_info_dict[message.server.id]["playlist_info"]["playlist_name"] = user_playlist
+            server_queue_info_dict[message.server.id]["playlist_info"]["current_index"] = 0
+
+            # We start the player
+            youtube_player.start()
+
+            # Telling the user that we're playing the video
+            await client.send_message(message.channel,
+                                      message.author.mention + (
+                                          ", I added to queue and started playing, audio with title: *{0}*, uploaded by: *{1}*. (Use **\"" + client.user.mention + " queue list\"** to see the current queue)").format(
+                                          *helpers.remove_discord_formatting(youtube_player.title, (
+                                              "N/A" if youtube_player.uploader is None else youtube_player.uploader))))
+
+            # We log what video title and uploader the played audio has
+            helpers.log_info(
+                "Added to queue and started playing, audio with title: \"{0}\", uploaded by: \"{1}\", in voice channel: \"{2}\" on server: \"{3}\"".format(
+                    youtube_player.title, ("N/A" if youtube_player.uploader is None else youtube_player.uploader),
+                    voice.channel.name, voice.server.name))
+
+
+    except IOError as e:
+        # The file either doesn't exist, or we don't have permission to open it, but we assume that it doesn't exist
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I wasn't able to open that file, are you sure that you specified a valid playlist name?")
+
+
+@command_decorator.command("voice playlist stop",
+                           "Stops playing the current playlist, and starts playing the rest of the queue.")
+async def cmd_voice_playlist_stop(message: discord.Message, client: discord.Client, config: dict):
+    """This command stops playing a playlist and switches to the regular queue playing. It does this by invoking the queue handler."""
+
+    # We check if the user is allowed to use voice commands
+    if not await permission_checker(message, client, config):
+        # They're not allowed to use voice commands
+        return
+
+    # We check if we're connected to a voice channel / if we've setup a voice info entry for the server
+    if not client.is_voice_connected(message.server):
+        # We tell the user that we aren't connected to a voice channel in that server
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I'm not connected to a voice channel on this server, if you want me to connect to one, please use the \"{0} voice join channel CHANNELNAME\" command.".format(
+                                      message.server.me.mention))
+        # We're done here
+        return
+
+    # We check if the server is using playlists
+    if not server_queue_info_dict[message.server.id]["playlist_info"]["is_playing"]:
+        # We tell the user that they need to disable the playlist before they start playing another one
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I'm not playing a playlist on this server, use \"{0} voice playlist play\" to start playing a playlist.".format(
+                                      message.server.me.mention))
+
+        # We're done here
+        return
+
+    # We're using playlists, so we just disable the playlist in playlist_info, and invoke the queue handler
+    server_queue_info_dict[message.server.id]["playlist_info"]["is_playing"] = False
+    server_queue_info_dict[message.server.id]["playlist_info"]["current_index"] = -1
+    server_queue_info_dict[message.server.id]["playlist_info"]["playlist_name"] = ""
+
+    # We stop the current player, and therefore invoke the queue handler
+    server_queue_info_dict[message.server.id]["queue"][0].stop()
+
+    # We tell the user that we've stopped playing the playlist
+    await client.send_message(message.channel, message.author.mention + ", I've now stopped playing the playlist.")
+
+
+@command_decorator.command("voice playlist add",
+                           "Uploads the attached file as a playlist file. Filenames cannot contain dots. Use with caution. Format for playlist files is \"LINK\\nLINK\\nLINK\\n...\".",
+                           admin=True)
+# TODO make
+async def cmd_voice_playlist_add(message: discord.Message, client: discord.Client, config: dict):
+    """This command lets an anna-bot admin upload a new playlist file to the bot. This doesn't allow regular users to do it because of DOS and space concerns."""
+
+
+@command_decorator.command("voice playlist remove",
+                           "Removes an existing playlist file from anna-bot. Use with caution, as it will stop all playing of this playlist.",
+                           admin=True)
+# TODO make
+async def cmd_voice_playlist_remove(message: discord.Message, client: discord.Client, config: dict):
+    """This command lets an anna-bot admin remove an existing playlist file from the bot. This doesn't allow regular users to do it because of abuse concerns."""
+
+
+@command_decorator.command("voice playlist list",
+                           "Lists the available playlist files that anna-bot can play.")
+async def cmd_voice_playlist_list(message: discord.Message, client: discord.Client, config: dict):
+    """This command lets a regular user list the available playlist files on the bot."""
+
+    # We check if the message was sent in a regular channel
+    if not await pm_checker(message, client):
+        # They can't execute the commands
+        return False
+
+    # We create a list of the filenames in the playlist directory
+    playlist_files = []
+    for root, dirs, files in os.walk("playlists"):
+        playlist_files = files
+        # We only get top level files
+        break
+
+    # We check if we don't have any files.
+    if playlist_files == []:
+        await client.send_message(message.channel, message.author.mention + ", There are no playlist files available.")
+        # We're done here
+        return
+
+    # The full message to send to the user
+    list_message = message.author.mention + "These are the available playlist files:\n-------------------------"
+
+    # We add an entry for each playlist file
+    for name in playlist_files:
+        list_message += "\n**{0}**\n-------------------------".format(name)
+
+    # We send the message
+    await helpers.send_long(client, list_message, message.channel)
+
+
 @command_decorator.command("voice volume", "Change the volume of the audio that anna plays (0% -> 200%).")
 async def cmd_voice_set_volume(message: discord.Message, client: discord.Client, config: dict):
     """This command is used to change the volume of the audio that anna plays."""
@@ -557,7 +770,7 @@ async def cmd_voice_set_volume(message: discord.Message, client: discord.Client,
     if client.voice_client_in(message.server) is not None:
 
         # We check if we found any stream players
-        if len(server_and_queue_dict[message.server.id]) > 0:
+        if len(server_queue_info_dict[message.server.id]["queue"]) > 0:
 
             # We parse the command and check if the specified volume is a valid non-negative integer
             clean_argument = helpers.remove_anna_mention(client, message)[13:].strip()
@@ -569,7 +782,7 @@ async def cmd_voice_set_volume(message: discord.Message, client: discord.Client,
 
                 # We set the volume of the currently playing player to be the desired volume
                 # Setting the volume of the stream player
-                server_and_queue_dict[message.server.id][0].volume = volume
+                server_queue_info_dict[message.server.id]["queue"][0].volume = volume
 
                 # Telling the user that we've set the volume
                 await client.send_message(message.channel,
@@ -606,10 +819,10 @@ async def cmd_voice_play_toggle(message: discord.Message, client: discord.Client
     if client.voice_client_in(message.server) is not None:
 
         # We check if there are any player's in the current queue
-        if len(server_and_queue_dict[message.server.id]) > 0:
+        if len(server_queue_info_dict[message.server.id]["queue"]) > 0:
 
             # The player that is currently at the front of the queue
-            current_player = server_and_queue_dict[message.server.id][0]
+            current_player = server_queue_info_dict[message.server.id]["queue"][0]
 
             # We toggle the playing status
             if current_player.is_playing():
@@ -647,10 +860,10 @@ async def cmd_voice_play_stop(message: discord.Message, client: discord.Client, 
     if client.voice_client_in(message.server) is not None:
 
         # We check if there are any currently playing players
-        if len(server_and_queue_dict[message.server.id]) > 0:
+        if len(server_queue_info_dict[message.server.id]["queue"]) > 0:
 
             # The commands issuer's server and its queue and currently playing player
-            server_queue = server_and_queue_dict[message.server.id]
+            server_queue = server_queue_info_dict[message.server.id]["queue"]
             current_player = server_queue[0]
 
             # We log that we are handling the end of a player
@@ -658,18 +871,11 @@ async def cmd_voice_play_stop(message: discord.Message, client: discord.Client, 
                 "Youtube video with title: \"{0}\", uploaded by: \"{1}\", duration: {2}, was stopped by the stop command, handling server queue.".format(
                     current_player.title, current_player.uploader, current_player.duration))
 
-            # We store the volume of the player
-            last_volume = current_player.volume
-
             # We stop the currently playing player
             current_player.stop()
 
-            # We set the volume of the next player to the volume of the exited one
-            server_queue[1].volume = last_volume
-
-            # We start the new player, and remove the old one from the queue
-            server_queue[1].start()
-            del server_queue[0]
+            # We don't do any handling of the next player in queue, since the queue handler does that for us, and if we del a player, we will get a sigsev when trying to use the queue handler
+            queue_handler(current_player)
 
             # We tell the user that we've toggled the stream player
             await client.send_message(message.channel, message.author.mention + ", I've now stopped the audio.")
@@ -706,23 +912,44 @@ async def cmd_voice_queue_list(message: discord.Message, client: discord.Client,
     queue_message = ""
 
     # We check if the server has anything in its queue at all
-    if len(server_and_queue_dict[message.server.id]) == 0:
+    if len(server_queue_info_dict[message.server.id]["queue"]) == 0:
         # Nothing in the queue
         await client.send_message(message.channel, message.author.mention + ", this server's queue is empty.")
         # We're done here
         return
 
+    # If we're playing a playlist, we don't list the videos, so we check if we're playing a playlist
+    if server_queue_info_dict[message.server.id]["playlist_info"]["is_playing"]:
+        player = server_queue_info_dict[message.server.id]["queue"][0]
+        fields = helpers.remove_discord_formatting(
+            server_queue_info_dict[message.server.id]["playlist_info"]["playlist_name"], player.title, player.uploader,
+            str(player.duration),
+            player.description[:300].replace("http://", "http:// ") + " \u2026")
+        fields.insert(3, player.url.replace("_", "\\_"))
+
+        # We're playing a playlist on the server, so we tell the user that
+        await helpers.send_long(client,
+                                message.author.mention + ", I'm currently playing playlist *{0}*, "
+                                                         "and the currently playing audio is: "
+                                                         "*{1}* by *{2}* at url __{3}__\nDuration: **{4}** seconds.\nDescription:\n{5}".format(
+                                    *fields
+                                ), message.channel)
+
+        # We're done here
+        return
+
     # We loop through the queue
-    for inx, player in enumerate(server_and_queue_dict[message.server.id]):
+    for inx, player in enumerate(server_queue_info_dict[message.server.id]["queue"]):
         # We add the list message for this player
         # We clear the formatting of almost all the youtube info, but then we insert the player url in the proper slot since youtube urls can have underscored in them,
         # and underscores are discord formatting, so we don't want that field to get cleaned
         fields = helpers.remove_discord_formatting(str(inx), player.title, player.uploader,
                                                    str(player.duration),
-                                                   player.description[:300] + " \u2026")  # Unicode horizontal ellipsis
+                                                   player.description[:300].replace("://",
+                                                                                    ":// ") + " \u2026")  # Unicode horizontal ellipsis
         fields.insert(2, ("*. **Currently playing this**" if inx == 0 else "*"))
         fields.insert(4, player.url.replace("_", "\\_"))
-        queue_message += "-------------------------\n\tNr. **{0}**, *{1}{2}\nBy *{3}* at URL __{4}__\nDuration: {5} seconds.\nDescription:\n\t{6}\n-------------------------\n".format(
+        queue_message += "-------------------------\n\tNr. **{0}**, *{1}{2}\nBy *{3}* at URL __{4}__\nDuration: **{5}** seconds.\nDescription:\n{6}\n-------------------------\n".format(
             *fields)
 
     # We send the queue message
@@ -749,36 +976,36 @@ async def cmd_voice_queue_remove(message: discord.Message, client: discord.Clien
         return
 
     # We check if there are any stream players in the server
-    if len(server_and_queue_dict[message.server.id]) == 0:
-        # There is no voice client for this server
+    if len(server_queue_info_dict[message.server.id]["queue"]) == 0:
+        # There is no audio playing in this server
         await client.send_message(message.channel,
                                   message.author.mention + ", there isn't anything in the queue on this server, so you can't remove anything from it.")
         # We're done here
         return
 
     # We parse the command and check if the specified volume is a valid non-negative integer
-    clean_argument = helpers.remove_anna_mention(client, message)[len(" queue remove"):].strip()
+    clean_argument = helpers.remove_anna_mention(client, message)[len("queue remove "):].strip()
 
     if clean_argument.isdigit():
         # We check if the requested id is valid
-        if int(clean_argument) < len(server_and_queue_dict[message.server.id]):
+        if int(clean_argument) < len(server_queue_info_dict[message.server.id]["queue"]):
 
-            # We check if the specified id is the front of the queue
-            if int(clean_argument) == 0:
-                # We check if the player is done
-                if server_and_queue_dict[message.server.id][0].is_done():
-                    # We delete the player
-                    del server_and_queue_dict[message.server.id][0]
-                else:
-                    # We stop the player, and it will be removed by the queue handler
-                    server_and_queue_dict[message.server.id][0].stop()
+            # We check if the specified id is the front of the queue and we are using playlists
+            if int(clean_argument) == 0 and (server_queue_info_dict[message.server.id]["playlist_info"]["is_playing"]):
+                # We stop the player, and we call the queue handler on it
+                server_queue_info_dict[message.server.id]["queue"][0].stop()
+
+                # We tell the user that we've removed the player from the queue
+                await client.send_message(message.channel,
+                                          message.author.mention + ", I've now removed it from the queue, but the playlist will continue.")
 
             else:
-                # We delete the player
-                del server_and_queue_dict[message.server.id][int(clean_argument)]
+                # We stop the player, and it will be removed by the queue handler
+                server_queue_info_dict[message.server.id]["queue"][int(clean_argument)].stop()
 
-            # We tell the user that we've removed the player from the queue
-            await client.send_message(message.channel, message.author.mention + ", I've now removed it from the queue.")
+                # We tell the user that we've removed the player from the queue
+                await client.send_message(message.channel,
+                                          message.author.mention + ", I've now removed it from the queue.")
 
             # We log that we've removed the player from the queue
             helpers.log_info("Removed player at index {0} from queue on server {1} ({2}).".format(int(clean_argument),
@@ -816,7 +1043,7 @@ async def cmd_voice_queue_clear(message: discord.Message, client: discord.Client
         return
 
     # We check if there are any stream players in the server
-    if len(server_and_queue_dict[message.server.id]) == 0:
+    if len(server_queue_info_dict[message.server.id]["queue"]) == 0:
         # There is no voice client for this server
         await client.send_message(message.channel,
                                   message.author.mention + ", there isn't anything in the queue on this server, so you can't clear it.")
@@ -824,10 +1051,15 @@ async def cmd_voice_queue_clear(message: discord.Message, client: discord.Client
         return
 
     # We make sure that the current player is paused, by pausing it :)
-    server_and_queue_dict[message.server.id][0].pause()
+    server_queue_info_dict[message.server.id]["queue"][0].pause()
+
+    # We set the playlist info to not playing a playlist
+    server_queue_info_dict[message.server.id]["playlist_info"]["is_playing"] = False
+    server_queue_info_dict[message.server.id]["playlist_info"]["playlist_name"] = ""
+    server_queue_info_dict[message.server.id]["playlist_info"]["current_index"] = -1
 
     # We clear the queue, note that this removes ALL references to the players within
-    del server_and_queue_dict[message.server.id][:]
+    del server_queue_info_dict[message.server.id]["queue"][:]
 
     # We tell the user that we've cleared the queue
     await client.send_message(message.channel, message.author.mention + ", I've now cleared the queue.")
@@ -856,10 +1088,19 @@ async def cmd_voice_queue_forward(message: discord.Message, client: discord.Clie
         return
 
     # We check if there are any stream players in the server
-    if len(server_and_queue_dict[message.server.id]) < 2:
+    if len(server_queue_info_dict[message.server.id]["queue"]) < 2:
         # There is no voice client for this server
         await client.send_message(message.channel,
                                   message.author.mention + ", there are too few items in the queue on this server to be able to move anything in it.")
+        # We're done here
+        return
+
+    # We check if the server is playing a playlist as, if so, they can't forward anything
+    if server_queue_info_dict[message.server.id]["playlist_info"]["is_playing"]:
+        # Playing a playlist
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I'm playing a playlist on this server, so you can't forward songs until you've turned off the playlist.")
+
         # We're done here
         return
 
@@ -868,23 +1109,24 @@ async def cmd_voice_queue_forward(message: discord.Message, client: discord.Clie
 
     if clean_argument.isdigit():
         # We check if the requested id is valid
-        if 0 < int(clean_argument) < len(server_and_queue_dict[message.server.id]):
+        if 0 < int(clean_argument) < len(server_queue_info_dict[message.server.id]["queue"]):
 
             # We pause the currently playing player
-            server_and_queue_dict[message.server.id][0].pause()
+            server_queue_info_dict[message.server.id]["queue"][0].pause()
 
             # We save the volume of the currently playing player
-            last_volume = server_and_queue_dict[message.server.id][0].volume
+            last_volume = server_queue_info_dict[message.server.id]["queue"][0].volume
 
             # We move the specified player to the front
-            server_and_queue_dict[message.server.id].insert(0, server_and_queue_dict[message.server.id].pop(
+            server_queue_info_dict[message.server.id]["queue"].insert(0, server_queue_info_dict[message.server.id][
+                "queue"].pop(
                 int(clean_argument)))
 
             # We set the volume of the newly forwarded player
-            server_and_queue_dict[message.server.id][0].volume = last_volume
+            server_queue_info_dict[message.server.id]["queue"][0].volume = last_volume
 
             # We resume the player
-            server_and_queue_dict[message.server.id][0].resume()
+            server_queue_info_dict[message.server.id]["queue"][0].resume()
 
             # We tell the user that we've forwarded the player in the queue
             await client.send_message(message.channel,
@@ -899,7 +1141,7 @@ async def cmd_voice_queue_forward(message: discord.Message, client: discord.Clie
             # The passed argument wasn't a valid number
             await client.send_message(message.channel,
                                       message.author.mention + ", that isn't a valid number. The valid range is 1 -> {0}.".format(
-                                          len(server_and_queue_dict[message.server.id])))
+                                          len(server_queue_info_dict[message.server.id]["queue"])))
             # We're done here
             return
 
@@ -1127,9 +1369,20 @@ async def pm_checker(message: discord.Message, client: discord.Client):
     return True
 
 
+def is_playing(server_id: str):
+    """This method checks if we are have any active players on the passed server.
+    Returns True if we are playing something (len(queue) >= 1).
+    Returns False if we aren't (this includes not having setup a voice info object)."""
+    if server_queue_info_dict.get(server_id) is not None:
+        # We check if we're playing anything
+        return len(server_queue_info_dict[server_id]["queue"]) >= 1
+    else:
+        return False
+
+
 def queue_handler(current_player):
     """This method gets called after each streamplayer stops, with current_player being the player that exited.
-    It handles removing the player from the server's queue, and starting playing the next in the queue"""
+    It handles removing the player from the server's queue, and starting playing the next in the queue, or if the server uses playlists, it starts the next audio feed in the playlist."""
 
     # We save the volume of the exited stream
     last_volume = current_player.volume
@@ -1137,9 +1390,9 @@ def queue_handler(current_player):
     # If we found the stream player that we got passed (This will always be true, but this variable is used for signaling)
     found = True
 
-    # We find the exited streamplayer in the server and queue pair list Since we have no info on which server the streamplayer is playing on, we have to use id()
-    for server_id in server_and_queue_dict:
-        for inx_player, player in enumerate(server_and_queue_dict[server_id]):
+    # We find the exited streamplayer in the server and info list Since we have no info on which server the streamplayer is playing on, we have to use id()
+    for server_id in server_queue_info_dict:
+        for inx_player, player in enumerate(server_queue_info_dict[server_id]["queue"]):
             if current_player is player:
                 found = True
                 break
@@ -1149,7 +1402,7 @@ def queue_handler(current_player):
 
     # We log that we are handling the end of a player
     helpers.log_info(
-        "Youtube video with title: \"{0}\", uploaded by: \"{1}\", duration: {2}, exited, handling server queue.".format(
+        "Audio feed with title: \"{0}\", uploaded by: \"{1}\", duration: {2}, exited, handling server queue.".format(
             current_player.title, current_player.uploader, current_player.duration))
 
     # We make sure the impossible doesn't happen
@@ -1159,21 +1412,128 @@ def queue_handler(current_player):
         return
 
     # We delete the old stream player
-    del server_and_queue_dict[server_id][inx_player]
+    del server_queue_info_dict[server_id]["queue"][inx_player]
 
+    # Here we split the logic to handle playlists (not youtube-like playlists, I mean the file playlists)
+    # We also check that the exhausted/stopped player causes a new player to become the first player, as if not, we shouldn't load a new playlist entry
+    if server_queue_info_dict[server_id]["playlist_info"]["is_playing"] and inx_player == 0:
+
+        # We check if we can read the playlist file
+        try:
+            with open(os.path.join("playlists", server_queue_info_dict[server_id]["playlist_info"]["playlist_name"]),
+                      mode="r", encoding="utf-8") as playlist_file:
+
+                # Performance
+                target_line = server_queue_info_dict[server_id]["playlist_info"]["current_index"] + 1
+                # We loop back to the beginning of the playlist if we reached the end
+                target_line = 0 if target_line == sum(1 for _ in playlist_file) else target_line
+
+                # We seek back to the beginning of the file, so we can loop over it again, this took me like 1 hour to debug...
+                playlist_file.seek(0)
+
+                # We search through the file to the line on which the new link should exist
+                for inx, line in enumerate(playlist_file):
+                    # We check if we're reached the target line (current index + 1)
+                    if inx == target_line:
+                        # We reached the target line, so we create a new stream player (CTRL+C CTRL+V of voice play link)
+                        # We need to catch some errors
+                        # The client
+                        client = helpers.actual_client
+
+                        # The voice channel we're connected to, we can assume that we are connected, since the leave function does not call this function
+                        voice = client.voice_client_in(client.get_server(server_id))
+
+                        try:
+                            # We have the correct line, so we try to create a ytdl player
+                            # I found these ytdl options here: https://github.com/rg3/youtube-dl/blob/master/youtube_dl/YoutubeDL.py https://github.com/rg3/youtube-dl/blob/e7ac722d6276198c8b88986f06a4e3c55366cb58/README.md
+                            youtube_player_future = asyncio.run_coroutine_threadsafe(
+                                voice.create_ytdl_player(line.strip(), ytdl_options={"noplaylist": True},
+                                                         after=queue_handler), client.loop)
+
+                            # We register a callback to the future, so it adds the player to the first position in the queue when ytdl is done
+                            youtube_player_future.add_done_callback(
+                                lambda x: insert_start_player_future_in_queue(x, server_id, last_volume, 0))
+
+                        except youtube_dl.DownloadError:
+                            # The URL failed to load, it's probably invalid
+                            helpers.log_info(
+                                "Was not able to load playlist entry at index {0} in playlist {1} because of a youtube_dl.DownloadError.".format(
+                                    inx, server_queue_info_dict[server_id]["playlist_info"]["playlist_name"]))
+
+                            # We failed loading a new playlist entry
+                            break
+                        except Exception as e:
+                            # Unknown error
+                            helpers.log_info(
+                                "Was not able to load playlist entry at index {0} in playlist {1} because of an unknown error. Info: {2}".format(
+                                    inx, server_queue_info_dict[server_id]["playlist_info"]["playlist_name"], str(e)))
+
+                            # We failed loading a new playlist entry
+                            break
+
+                        # We update the playlist index
+                        server_queue_info_dict[server_id]["playlist_info"]["current_index"] = target_line
+
+                        # We succeeded in loading a new playlist entry, and we've logged it, so we're done
+                        return
+
+        except IOError as e:
+            # We weren't able to open the playlist file, so we go back to using the regular queue
+            # But we log it
+
+            # The voice channel we're connected to, we can assume that we are connected, since the leave function does not call this function
+            voice = client.voice_client_in(client.get_server(server_id))
+            helpers.log_info(
+                "Wasn't able to load playlist file {0} to continue playing playlist on server {1} ({2}).".format(
+                    os.path.join("playlists", server_queue_info_dict[server_id]["playlist_info"]["playlist_name"]),
+                    voice.server.name, voice.server.id))
+
+    # We aren't using playlists if we get to this code, so we disable playlists, and play the next audio feed in the queue
+    server_queue_info_dict[server_id]["playlist_info"]["is_playing"] = False
+    server_queue_info_dict[server_id]["playlist_info"]["current_index"] = -1
+    server_queue_info_dict[server_id]["playlist_info"]["playlist_name"] = ""
+
+    # We aren't playing a playlist file
     # We check if the server has any more players in the queue
-    if len(server_and_queue_dict[server_id]) == 0:
+    if len(server_queue_info_dict[server_id]["queue"]) == 0:
         helpers.log_info(
-            "Server on which youtube video with title: \"{0}\", uploaded by: \"{1}\", duration: {2}, played, has exhausted it's queue.".format(
+            "Server on which audio feed with title: \"{0}\", uploaded by: \"{1}\", duration: {2}, played, has exhausted it's queue.".format(
                 current_player.title, current_player.uploader, current_player.duration))
         # We're done here
         return
 
-    # We set the volume and start the new first player in the queue
-    server_and_queue_dict[server_id][0].volume = last_volume
-    server_and_queue_dict[server_id][0].start()
+    # We check if there is a new first player in the server queue
+    if inx_player == 0:
+        # We set the volume and start the new first player in the queue
+        server_queue_info_dict[server_id]["queue"][0].volume = last_volume
+        server_queue_info_dict[server_id]["queue"][0].start()
 
-    # We log that the new player is playing, and that we're done with the queue handling
+        current_player = server_queue_info_dict[server_id]["queue"][0]
+
+        # We log that the new player is playing, and that we're done with the queue handling
+        helpers.log_info(
+            "Now playing audio feed with title: \"{0}\", uploaded by: \"{1}\", duration: {2}, and done with handling server queue.".format(
+                current_player.title, current_player.uploader, current_player.duration))
+
+
+def insert_start_player_future_in_queue(player_future, server_id: str, target_volume: float, index: int):
+    """This function is used as a add_done_callback callback for adding a streamplayer to a servers queue in a specified position."""
+    player = player_future.result()
+
+    # We insert the streamplayer into the server's queue
+    server_queue_info_dict[server_id]["queue"].insert(index, player)
+
+    # We set the target volume, and if the player is at the beginning of the queue, we start it and pause the previous first
+    player.volume = target_volume
+    if index == 0:
+        player.start()
+        if len(server_queue_info_dict[server_id]["queue"]) > 1:
+            server_queue_info_dict[server_id]["queue"][1].pause()
+
+    # We log what video title and uploader the played audio has
     helpers.log_info(
-        "Now playing youtube video with title: \"{0}\", uploaded by: \"{1}\", duration: {2}, and done with handling server queue.".format(
-            current_player.title, current_player.uploader, current_player.duration))
+        "Added to index {4} in queue, audio with title: \"{0}\", uploaded by: \"{1}\". This was entry {2} in playlist {3}.".format(
+            player.title,
+            ("N/A" if player.uploader is None else player.uploader),
+            server_queue_info_dict[server_id]["playlist_info"]["current_index"],
+            server_queue_info_dict[server_id]["playlist_info"]["playlist_name"], index))

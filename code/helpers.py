@@ -43,6 +43,8 @@ if config["log_config"]["use_email_notifications"]:
 # We compile the regular expressions we will need, for performance
 role_id_regex = re.compile(r'<@&\d+>')
 
+# The client object
+actual_client = discord.Client(cache_auth=False)
 
 def write_config(config_temp: dict):
     """This function writes the passed dict out to the config file as json."""

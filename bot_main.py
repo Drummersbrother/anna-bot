@@ -25,6 +25,8 @@ if __name__ == "__main__":
 
 # TODO Handle group calls and messages, and/or move to the commands extension
 # TODO add option to disable the add-bot command
+# TODO Fix error when video doesn't exist in a playlist, possible with other commands aswell
+# TODO add admin add and remove playlist commands
 
 @client.event
 async def on_message(message: discord.Message):
@@ -191,7 +193,7 @@ async def on_message(message: discord.Message):
                             command["command"]):
                         # We log what command was used by who and where
                         helpers.log_info("The " + command[
-                            "command"] + " command was triggered by \"" + message.author.name + "\" in channel \"" + message.channel.name + "\" on server \"" + message.server.name + "\".)")
+                            "command"] + " command was triggered by \"" + message.author.name + "\" in channel \"" + message.channel.name + "\" on server \"" + message.server.name + "\".")
 
                         # The command matches, so we call the method that was specified in the command list
                         temp_result = await command["method"](message, client, config, *[x[0] for x in
@@ -227,7 +229,7 @@ async def on_message(message: discord.Message):
                             else:
                                 # We log what command was used by who and where
                                 helpers.log_info("The " + command[
-                                    "command"] + " admin command was triggered by admin \"" + message.author.name + "\" in channel \"" + message.channel.name + "\" on server \"" + message.server.name + "\".)")
+                                    "command"] + " admin command was triggered by admin \"" + message.author.name + "\" in channel \"" + message.channel.name + "\" on server \"" + message.server.name + "\".")
 
                             # The command matches, so we call the method that was specified in the command list
                             temp_result = await command["method"](message, client, config, *[x[0] for x in

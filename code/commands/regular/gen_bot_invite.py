@@ -8,6 +8,15 @@ from ... import command_decorator
 async def gen_bot_invite(message: discord.Message, client: discord.Client, config: dict):
     """This method is called to handle someone wanting to invite anna-bot to their own server"""
 
+    # We check if this command is enabled
+    if not config["add_bot_cmd"]["enabled"]:
+        # The command is not enabled
+        await client.send_message(message.channel,
+                                  message.author.mention + ", you can't add this bot to another server.")
+
+        # We're done here
+        return
+
     # Creating the Permissions object so the bot gets proper permissions to work when it is invited to a server
     bot_permissions = discord.Permissions().none()
 

@@ -1,10 +1,9 @@
 import asyncio
 import os.path
 import re
-import urllib.parse
-import urllib.request
 
 import discord
+import requests
 import youtube_dl
 from websockets.exceptions import ConnectionClosed
 
@@ -470,10 +469,8 @@ async def cmd_voice_play_youtube_search(message: discord.Message, client: discor
             return
 
         # We search for the video
-        # I got this code from https://www.codeproject.com/Articles/873060/Python-Search-Youtube-for-Video
-        query_string = urllib.parse.urlencode({"search_query": user_query})
-        html_content = urllib.request.urlopen("http://www.youtube.com/results?" + query_string)
-        search_results = re.findall("href=\"\/watch\?v=(.{11})", html_content.read().decode())
+        html_content = requests.get("http://www.youtube.com/results", {"search_query": user_query})
+        search_results = re.findall("href=\"\/watch\?v=(.{11})", html_content.text)
         helpers.log_info(
             "Searched youtube for {0} and got result http://www.youtube.com/watch?v={1} to add to queue on channel {2} ({3}) on server {4} ({5}).".format(
                 user_query, search_results[0], voice.channel.name, voice.channel.id, message.server.name,
@@ -733,17 +730,85 @@ async def cmd_voice_playlist_stop(message: discord.Message, client: discord.Clie
 @command_decorator.command("voice playlist add",
                            "Uploads the attached file as a playlist file. Filenames cannot contain dots. Use with caution. Format for playlist files is \"LINK\\nLINK\\nLINK\\n...\".",
                            admin=True)
-# TODO make
 async def cmd_voice_playlist_add(message: discord.Message, client: discord.Client, config: dict):
-    """This command lets an anna-bot admin upload a new playlist file to the bot. This doesn't allow regular users to do it because of DOS and space concerns."""
+    """This command lets an anna-bot admin upload a new playlist file to the bot. This doesn't allow regular users to do it because of DoS and space concerns."""
+
+    # This command can be used anywhere, the only requirement is that the message has attached a playlist file (one link per line, unix file endings), and that the file does not share it's name with one of the already existing playlists
+
+    # We check if the user attached a file or not
+    if not message.attachments:
+        # The user needs to give us a file to upload
+        await client.send_message(message.channel, message.author.mention + ", you need to attach a playlist file.")
+
+        # We're done here
+        return
+
+    # We parse the filename and make it safe
+    safe_filename = "".join(c for c in message.attachments[0]["filename"] if c.isalnum() or c in (' ', '_')).rstrip()
+
+    # We create a list of the filenames in the playlist directory
+    for root, dirs, playlist_files in os.walk("playlists"):
+        # We only get top level files
+        break
+
+    # We check if the file already exists
+    if safe_filename in playlist_files:
+        # We tell the user that they need to specify a unique filename
+        await client.send_message(message.channel,
+                                  message.author.mention + ", you need to upload with a filename that doesn't already exist.")
+
+        # We're done here
+        return
+
+    # We've validated the file, so we download it and store it in the playlists directory
+    with open(os.path.join("playlists", safe_filename), mode="wb") as new_playlist_file:
+
+        # We get the attached file from the url
+        file_stream = requests.get(message.attachments[0]["url"], stream=True)
+
+        # We write out chunks of the file to disk until it's done
+        for chunk in file_stream.iter_content(chunk_size=1024):
+            new_playlist_file.write(chunk)
+
+    # We tell the user that we're done, and we log it
+    await client.send_message(message.channel, message.author.mention + ", I've now stored that playlist.")
+    helpers.log_info("Downloaded and stored playlist file {0}.".format(safe_filename))
 
 
 @command_decorator.command("voice playlist remove",
                            "Removes an existing playlist file from anna-bot. Use with caution, as it will stop all playing of this playlist.",
                            admin=True)
-# TODO make
 async def cmd_voice_playlist_remove(message: discord.Message, client: discord.Client, config: dict):
     """This command lets an anna-bot admin remove an existing playlist file from the bot. This doesn't allow regular users to do it because of abuse concerns."""
+
+    # This command can be used anywhere, the only requirement is that the user specifies a playlist file that exists
+    # We parse the specified filename
+    playlist_name = helpers.remove_anna_mention(client, message)[len("admin voice playlist remove "):].strip()
+
+    # We check if it exists
+    if not (os.path.isfile(os.path.join("playlists", playlist_name)) and not os.path.islink(
+            os.path.join("playlists", playlist_name))):
+        # The filename specified is not valid
+        await client.send_message(message.channel, message.author.mention + ", that playlist doesn't exist.")
+
+        # We're done here
+        return
+
+    # The file is not a symlink, and it's a file, so we remove it and tell the user
+    try:
+        # We remove the file
+        os.remove(os.path.join("playlists", playlist_name))
+    except (PermissionError, OSError) as e:
+        # We tell the user that we weren't able to remove the file
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I wasn't able to remove that playlist because of an error.")
+
+        # We're done here
+        return
+
+    # We log it and tell the user that we've succeeded
+    await client.send_message(message.channel, message.author.mention + ", I've now deleted that playlist")
+    helpers.log_info("Deleted playlist {0}.".format(playlist_name))
 
 
 @command_decorator.command("voice playlist list",
@@ -758,8 +823,7 @@ async def cmd_voice_playlist_list(message: discord.Message, client: discord.Clie
 
     # We create a list of the filenames in the playlist directory
     playlist_files = []
-    for root, dirs, files in os.walk("playlists"):
-        playlist_files = files
+    for root, dirs, playlist_files in os.walk("playlists"):
         # We only get top level files
         break
 

@@ -7,6 +7,7 @@ A discord bot created for the https://mcevalonia.com minecraft server's discord 
 python3.5
 discord.py >= 0.16 (https://github.com/Rapptz/discord.py)
 youtube_dl
+ffmpeg/avconv
 ```
 
 ### Running it

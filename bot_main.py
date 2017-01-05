@@ -25,8 +25,6 @@ if __name__ == "__main__":
 
 # TODO Handle group calls and messages, and/or move to the commands extension
 # TODO add option to disable the add-bot command
-# TODO Fix error when video doesn't exist in a playlist, possible with other commands aswell
-# TODO add admin add and remove playlist commands
 
 @client.event
 async def on_message(message: discord.Message):

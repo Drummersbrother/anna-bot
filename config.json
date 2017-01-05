@@ -3,6 +3,9 @@
     "app_client_id": APP ID HERE,
     "token": "BOT TOKEN HERE"
   },
+  "add_bot_cmd": {
+    "enabled": true
+  },
   "invite_cmd": {
     "invite_max_uses": 1,
     "invite_valid_time_min": 10

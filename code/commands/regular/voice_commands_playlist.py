@@ -6,6 +6,7 @@ import urllib.request
 
 import discord
 import youtube_dl
+from websockets.exceptions import ConnectionClosed
 
 from ... import command_decorator
 from ... import helpers
@@ -381,6 +382,17 @@ async def cmd_voice_play_link(message: discord.Message, client: discord.Client, 
 
             # We're done here
             return
+
+        except ConnectionClosed:
+            # This can happen with code 1000 "No reason"...
+
+            # The URL failed to load, it's probably invalid
+            await client.send_message(message.channel,
+                                      message.author.mention + ", that URL failed to load, is it valid?")
+
+            # We're done here
+            return
+
         except:
             # Unknown error
             await client.send_message(message.channel,
@@ -620,6 +632,17 @@ async def cmd_voice_playlist_play(message: discord.Message, client: discord.Clie
 
                 # We're done here
                 return
+
+            except ConnectionClosed:
+                # This can happen with code 1000 "No reason"...
+
+                # The URL failed to load, it's probably invalid
+                await client.send_message(message.channel,
+                                          message.author.mention + ", that URL failed to load, is it valid?")
+
+                # We're done here
+                return
+
             except:
                 # Unknown error
                 await client.send_message(message.channel,
@@ -1487,6 +1510,25 @@ def insert_start_player_future_in_queue(player_future, server_id: str, target_vo
         # We're done here
         return
 
+    except ConnectionClosed:
+        # This can happen with code 1000 "No reason"...
+
+        # The URL failed to load, it's probably invalid
+        helpers.log_info(
+            "Was not able to load playlist entry at index {0} in playlist {1} because of a websockets.exceptions.ConnectionClosed error. Trying next entry in the playlist.".format(
+                index, server_queue_info_dict[server_id]["playlist_info"]["playlist_name"]))
+
+        # We try again with the next entry in the playlist
+        if update_server_playlist(server_id, target_volume):
+            # We managed to create a new ytdl_player, or atleast try to do it
+            helpers.log_info("New ytdl player is going to be created.")
+        else:
+            # We failed
+            helpers.log_info("Was not able to create a new ytdl_player.")
+
+        # We're done here
+        return
+
     except Exception as e:
         # Unknown error
         helpers.log_info(
@@ -1507,11 +1549,8 @@ def insert_start_player_future_in_queue(player_future, server_id: str, target_vo
         server_queue_info_dict[server_id]["queue"].insert(index, player)
     except KeyError as e:
         helpers.log_info(
-            "Was not able to add audio with title: \"{0}\", uploaded by: \"{1}\", at entry {2} in playlist {3} to server with id {4} as there was no voice info for that server.".format(
-                player.title,
-                ("N/A" if player.uploader is None else player.uploader),
-                server_queue_info_dict[server_id]["playlist_info"]["current_index"],
-                server_queue_info_dict[server_id]["playlist_info"]["playlist_name"], server_id))
+            "Was not able to add audio feed to server with id {0} as there was no voice info for that server.".format(
+                server_id))
 
         # We're done here
         return

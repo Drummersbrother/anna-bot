@@ -600,7 +600,7 @@ async def cmd_voice_playlist_play(message: discord.Message, client: discord.Clie
         with open(os.path.join("playlists", user_playlist), mode="r", encoding="utf-8") as playlist_file:
             # We can read the file, so we store the current volume of the first thing in the queue
             last_volume = 1 if len(server_queue_info_dict[message.server.id]["queue"]) == 0 else \
-            server_queue_info_dict[message.server.id]["queue"][0].volume
+                server_queue_info_dict[message.server.id]["queue"][0].volume
 
             # We get the voice client in the issuing server
             voice = client.voice_client_in(message.server)
@@ -924,7 +924,7 @@ async def cmd_voice_queue_list(message: discord.Message, client: discord.Client,
         fields = helpers.remove_discord_formatting(
             server_queue_info_dict[message.server.id]["playlist_info"]["playlist_name"], player.title, player.uploader,
             str(player.duration),
-            player.description[:300].replace("http://", "http:// ") + " \u2026")
+            player.description[:300].replace("://", ":// ") + " \u2026")
         fields.insert(3, player.url.replace("_", "\\_"))
 
         # We're playing a playlist on the server, so we tell the user that
@@ -1380,12 +1380,8 @@ def is_playing(server_id: str):
         return False
 
 
-def queue_handler(current_player):
-    """This method gets called after each streamplayer stops, with current_player being the player that exited.
-    It handles removing the player from the server's queue, and starting playing the next in the queue, or if the server uses playlists, it starts the next audio feed in the playlist."""
-
-    # We save the volume of the exited stream
-    last_volume = current_player.volume
+def find_stream_player(stream_player):
+    """This method returns the server id and queue index of a stream player, returns (False, False, False) if they don't exist."""
 
     # If we found the stream player that we got passed (This will always be true, but this variable is used for signaling)
     found = True
@@ -1393,23 +1389,36 @@ def queue_handler(current_player):
     # We find the exited streamplayer in the server and info list Since we have no info on which server the streamplayer is playing on, we have to use id()
     for server_id in server_queue_info_dict:
         for inx_player, player in enumerate(server_queue_info_dict[server_id]["queue"]):
-            if current_player is player:
+            if stream_player is player:
                 found = True
                 break
 
         if found:
             break
 
+    # We make sure the impossible doesn't happen
+    if not found:
+        # We didn't find the stream player that was passed to us, which should never happen
+        helpers.log_error("Did not find the streamplayer that was passed to the find function, report the bug?")
+        return
+
+    return server_id, inx_player
+
+
+def queue_handler(current_player):
+    """This method gets called after each streamplayer stops, with current_player being the player that exited.
+    It handles removing the player from the server's queue, and starting playing the next in the queue, or if the server uses playlists, it starts the next audio feed in the playlist."""
+
+    # We save the volume of the exited stream
+    last_volume = current_player.volume
+
+    # We find the stream player in the server voice info dict
+    server_id, inx_player = find_stream_player(current_player)
+
     # We log that we are handling the end of a player
     helpers.log_info(
         "Audio feed with title: \"{0}\", uploaded by: \"{1}\", duration: {2}, exited, handling server queue.".format(
             current_player.title, current_player.uploader, current_player.duration))
-
-    # We make sure the impossible doesn't happen
-    if not found:
-        # We didn't find the stream player that was passed to us, which should never happen
-        helpers.log_error("Did not find the streamplayer that was passed to the queue function, report the bug?")
-        return
 
     # We delete the old stream player
     del server_queue_info_dict[server_id]["queue"][inx_player]
@@ -1418,75 +1427,13 @@ def queue_handler(current_player):
     # We also check that the exhausted/stopped player causes a new player to become the first player, as if not, we shouldn't load a new playlist entry
     if server_queue_info_dict[server_id]["playlist_info"]["is_playing"] and inx_player == 0:
 
-        # We check if we can read the playlist file
-        try:
-            with open(os.path.join("playlists", server_queue_info_dict[server_id]["playlist_info"]["playlist_name"]),
-                      mode="r", encoding="utf-8") as playlist_file:
-
-                # Performance
-                target_line = server_queue_info_dict[server_id]["playlist_info"]["current_index"] + 1
-                # We loop back to the beginning of the playlist if we reached the end
-                target_line = 0 if target_line == sum(1 for _ in playlist_file) else target_line
-
-                # We seek back to the beginning of the file, so we can loop over it again, this took me like 1 hour to debug...
-                playlist_file.seek(0)
-
-                # We search through the file to the line on which the new link should exist
-                for inx, line in enumerate(playlist_file):
-                    # We check if we're reached the target line (current index + 1)
-                    if inx == target_line:
-                        # We reached the target line, so we create a new stream player (CTRL+C CTRL+V of voice play link)
-                        # We need to catch some errors
-                        # The client
-                        client = helpers.actual_client
-
-                        # The voice channel we're connected to, we can assume that we are connected, since the leave function does not call this function
-                        voice = client.voice_client_in(client.get_server(server_id))
-
-                        try:
-                            # We have the correct line, so we try to create a ytdl player
-                            # I found these ytdl options here: https://github.com/rg3/youtube-dl/blob/master/youtube_dl/YoutubeDL.py https://github.com/rg3/youtube-dl/blob/e7ac722d6276198c8b88986f06a4e3c55366cb58/README.md
-                            youtube_player_future = asyncio.run_coroutine_threadsafe(
-                                voice.create_ytdl_player(line.strip(), ytdl_options={"noplaylist": True},
-                                                         after=queue_handler), client.loop)
-
-                            # We register a callback to the future, so it adds the player to the first position in the queue when ytdl is done
-                            youtube_player_future.add_done_callback(
-                                lambda x: insert_start_player_future_in_queue(x, server_id, last_volume, 0))
-
-                        except youtube_dl.DownloadError:
-                            # The URL failed to load, it's probably invalid
-                            helpers.log_info(
-                                "Was not able to load playlist entry at index {0} in playlist {1} because of a youtube_dl.DownloadError.".format(
-                                    inx, server_queue_info_dict[server_id]["playlist_info"]["playlist_name"]))
-
-                            # We failed loading a new playlist entry
-                            break
-                        except Exception as e:
-                            # Unknown error
-                            helpers.log_info(
-                                "Was not able to load playlist entry at index {0} in playlist {1} because of an unknown error. Info: {2}".format(
-                                    inx, server_queue_info_dict[server_id]["playlist_info"]["playlist_name"], str(e)))
-
-                            # We failed loading a new playlist entry
-                            break
-
-                        # We update the playlist index
-                        server_queue_info_dict[server_id]["playlist_info"]["current_index"] = target_line
-
-                        # We succeeded in loading a new playlist entry, and we've logged it, so we're done
-                        return
-
-        except IOError as e:
-            # We weren't able to open the playlist file, so we go back to using the regular queue
-            # But we log it
-
-            # The voice channel we're connected to, we can assume that we are connected, since the leave function does not call this function
-            voice = client.voice_client_in(client.get_server(server_id))
-            helpers.log_info(
-                "Wasn't able to load playlist file {0} to continue playing playlist on server {1} ({2}).".format(
-                    os.path.join("playlists", server_queue_info_dict[server_id]["playlist_info"]["playlist_name"]),
-                    voice.server.name, voice.server.id))
+        # We do playlist logic, and check whether it succeeded
+        if update_server_playlist(server_id, last_volume):
+            # We're done here
+            return
+        else:
+            # We weren't able to play the next playlist entry, so we disable playlists
+            pass
 
     # We aren't using playlists if we get to this code, so we disable playlists, and play the next audio feed in the queue
     server_queue_info_dict[server_id]["playlist_info"]["is_playing"] = False
@@ -1518,10 +1465,56 @@ def queue_handler(current_player):
 
 def insert_start_player_future_in_queue(player_future, server_id: str, target_volume: float, index: int):
     """This function is used as a add_done_callback callback for adding a streamplayer to a servers queue in a specified position."""
-    player = player_future.result()
+    # We try to get the streamplayer from the future, and we catch and report errors
 
-    # We insert the streamplayer into the server's queue
-    server_queue_info_dict[server_id]["queue"].insert(index, player)
+    try:
+        player = player_future.result()
+
+    except youtube_dl.DownloadError:
+        # The URL failed to load, it's probably invalid
+        helpers.log_info(
+            "Was not able to load playlist entry at index {0} in playlist {1} because of a youtube_dl.DownloadError. Trying next entry in the playlist.".format(
+                index, server_queue_info_dict[server_id]["playlist_info"]["playlist_name"]))
+
+        # We try again with the next entry in the playlist
+        if update_server_playlist(server_id, target_volume):
+            # We managed to create a new ytdl_player, or atleast try to do it
+            helpers.log_info("New ytdl player is going to be created.")
+        else:
+            # We failed
+            helpers.log_info("Was not able to create a new ytdl_player.")
+
+        # We're done here
+        return
+
+    except Exception as e:
+        # Unknown error
+        helpers.log_info(
+            "Was not able to load playlist entry at index {0} in playlist {1} because of an unknown error. Stopping playlist. Info: {2}".format(
+                index, server_queue_info_dict[server_id]["playlist_info"]["playlist_name"], str(e)))
+
+        # We aren't using playlists if we get to this code, so we disable playlists, and play the next audio feed in the queue
+        server_queue_info_dict[server_id]["playlist_info"]["is_playing"] = False
+        server_queue_info_dict[server_id]["playlist_info"]["current_index"] = -1
+        server_queue_info_dict[server_id]["playlist_info"]["playlist_name"] = ""
+
+        # We're done here, and we don't retry
+        return
+
+    # We catch exception from trying to insert into a queue on a server that doesn't have a voice info object anymore
+    try:
+        # We insert the streamplayer into the server's queue
+        server_queue_info_dict[server_id]["queue"].insert(index, player)
+    except KeyError as e:
+        helpers.log_info(
+            "Was not able to add audio with title: \"{0}\", uploaded by: \"{1}\", at entry {2} in playlist {3} to server with id {4} as there was no voice info for that server.".format(
+                player.title,
+                ("N/A" if player.uploader is None else player.uploader),
+                server_queue_info_dict[server_id]["playlist_info"]["current_index"],
+                server_queue_info_dict[server_id]["playlist_info"]["playlist_name"], server_id))
+
+        # We're done here
+        return
 
     # We set the target volume, and if the player is at the beginning of the queue, we start it and pause the previous first
     player.volume = target_volume
@@ -1537,3 +1530,80 @@ def insert_start_player_future_in_queue(player_future, server_id: str, target_vo
             ("N/A" if player.uploader is None else player.uploader),
             server_queue_info_dict[server_id]["playlist_info"]["current_index"],
             server_queue_info_dict[server_id]["playlist_info"]["playlist_name"], index))
+
+
+def update_server_playlist(server_id: str, target_volume: float):
+    """This method is used to move to the next entry in a playlist on a server.
+    It doesn't check if the current entry is playing.
+    Returns False if it wasn't able to begin ytdl_player creation. Else returns False."""
+
+    # We check if we can read the playlist file
+    try:
+        with open(os.path.join("playlists", server_queue_info_dict[server_id]["playlist_info"]["playlist_name"]),
+                  mode="r", encoding="utf-8") as playlist_file:
+
+            # Performance
+            target_line = server_queue_info_dict[server_id]["playlist_info"]["current_index"] + 1
+            # We loop back to the beginning of the playlist if we reached the end
+            target_line = 0 if target_line == sum(1 for _ in playlist_file) else target_line
+
+            # We seek back to the beginning of the file, so we can loop over it again, this took me like 1 hour to debug...
+            playlist_file.seek(0)
+
+            # We search through the file to the line on which the new link should exist
+            for inx, line in enumerate(playlist_file):
+                # We check if we're reached the target line (current index + 1)
+                if inx == target_line:
+                    # We reached the target line, so we create a new stream player (CTRL+C CTRL+V of voice play link)
+                    # We need to catch some errors
+                    # The client
+                    client = helpers.actual_client
+
+                    # The voice channel we're connected to, we check that it exists, as some playlists with broken links may trigger this code when the voice client for the server has been removed
+                    voice = client.voice_client_in(client.get_server(server_id))
+
+                    # We check that it exists
+                    if voice is None:
+                        helpers.log_info(
+                            "Could not handle queue, as server ({0}) did not have a voice client.".format(
+                                server_id))
+                        # We're done here
+                        return False
+
+                    # We have the correct line, so we try to create a ytdl player
+                    # I found these ytdl options here: https://github.com/rg3/youtube-dl/blob/master/youtube_dl/YoutubeDL.py https://github.com/rg3/youtube-dl/blob/e7ac722d6276198c8b88986f06a4e3c55366cb58/README.md
+                    youtube_player_future = asyncio.run_coroutine_threadsafe(
+                        voice.create_ytdl_player(line.strip(), ytdl_options={"noplaylist": True},
+                                                 after=queue_handler), client.loop)
+
+                    # We register a callback to the future, so it adds the player to the first position in the queue when ytdl is done
+                    youtube_player_future.add_done_callback(
+                        lambda x: insert_start_player_future_in_queue(x, server_id, target_volume, 0))
+
+                    # We update the playlist index
+                    server_queue_info_dict[server_id]["playlist_info"]["current_index"] = target_line
+
+                    # We succeeded in loading a new playlist entry, and we've logged it, so we're done
+                    return True
+
+    except IOError as e:
+        # We weren't able to open the playlist file, so we go back to using the regular queue
+        # But we log it
+
+        # The voice channel we're connected to, we check that it exists, as some playlists with broken links may trigger this code when the voice client for the server has been removed
+        voice = client.voice_client_in(client.get_server(server_id))
+
+        # We check that it exists
+        if voice is None:
+            helpers.log_info(
+                "Could not handle queue, as server ({0}) did not have a voice client.".format(
+                    server_id))
+            # We're done here
+            return False
+
+        helpers.log_info(
+            "Wasn't able to load playlist file {0} to continue playing playlist on server {1} ({2}), because of an IOError.".format(
+                os.path.join("playlists", server_queue_info_dict[server_id]["playlist_info"]["playlist_name"]),
+                voice.server.name, voice.server.id))
+
+        return False

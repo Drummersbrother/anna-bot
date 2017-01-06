@@ -101,11 +101,12 @@ async def on_message(message: discord.Message):
     # We need to define all the special params as globals to be able to access them without sneaky namespace stuff biting us in the ass
     global ignored_command_message_ids
 
-    # We define the list of special parameters that may be sent to the message functions, and also have to be returned from them (in an o)
+    # We define the list of special parameters that may be sent to the message functions, and also have to be returned from them (in a list)
     special_params = [ignored_command_message_ids, config]
 
     # Checking if we sent the message, so we don't trigger ourselves and checking if the message should be ignored or not (such as it being a response to another command)
-    if (message.author.id != client.user.id) and (message.id not in ignored_command_message_ids):
+    # We also check if the message was sent by a bot account, as we don't allow them to use commands
+    if not ((message.author.id == client.user.id) or (message.id in ignored_command_message_ids) or message.author.bot):
         # If a command is used with the message that was passed to the event, we know that a command has been triggered
         used_command = False
 

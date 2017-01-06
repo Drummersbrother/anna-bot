@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import json
 import time
 
@@ -762,11 +763,22 @@ if __name__ == "__main__":
     config["stats"]["volatile"]["start_time"] = time.time()
 
     try:
-        # Starting and authenticating the bot
-        client.run(config["credentials"]["token"])
+        # We have a while loop here because some errors are only catchable from the client.run method, as they are raised by tasks in the event loop
+        # Some of these errors are not, and shouldn't, be fatal to the bot, so we catch them and relaunch the client.
+        # The errors we don't catch however, rise to the next try except and actually turn off the bot
+        while True:
+            try:
+                # Starting and authenticating the bot
+                client.run(config["credentials"]["token"])
+            except concurrent.futures.TimeoutError:
+                # We got a TimeoutError, which in general shouldn't be fatal.
+                helpers.log_info("Got a TimeoutError from client.run, logging in again.")
+            else:
+                # If we implement a stop feature in the future, we will need this to be able to stop the bot without using exceptions
+                break
     except:
         # How did we exit?
-        helpers.log_info("Did not get user interrupt, but still got an error, re-raising...")
+        helpers.log_warning("Did not get user interrupt, but still got an error, re-raising...")
         raise
     else:
         # No error but we exited

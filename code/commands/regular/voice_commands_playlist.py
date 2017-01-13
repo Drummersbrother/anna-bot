@@ -12,7 +12,7 @@ from ... import helpers
 
 """This file handles the voice command interactions, state, and commands."""
 
-# The dict which describes the audio playing in a server, of form {"server id" : {"playlist_info" : {"is_playing" : Bool, "playlist_name" : str, "current_index" : int}, "queue" : [streamplayer, ...]}, ...}
+# The dict which describes the audio playing in a server, of form {"server id" : {"playlist_info" : {"is_playing" : Bool, "playlist_name" : str, "current_index" : int}, "channel_id": str, "queue" : [streamplayer, ...]}, ...}
 # The current player for the playlist (if enabled) will be queue[0]
 server_queue_info_dict = {}
 
@@ -252,7 +252,8 @@ async def cmd_join_voice_channel(message: discord.Message, client: discord.Clien
 
     # We add an entry for this server to the queue dict
     server_queue_info_dict[message.server.id] = {
-        "playlist_info": {"is_playing": False, "playlist_name": "", "current_index": -1}, "queue": []}
+        "playlist_info": {"is_playing": False, "playlist_name": "", "current_index": -1}, "queue": [],
+        "channel_id": voice_channel.id}
 
     return ignored_command_message_ids
 
@@ -305,7 +306,8 @@ async def cmd_join_self_voice_channel(message: discord.Message, client: discord.
 
     # We add an entry for this server to the queue dict
     server_queue_info_dict[message.server.id] = {
-        "playlist_info": {"is_playing": False, "playlist_name": "", "current_index": -1}, "queue": []}
+        "playlist_info": {"is_playing": False, "playlist_name": "", "current_index": -1}, "queue": [],
+        "channel_id": member_channel.id}
 
 
 @command_decorator.command("voice leave", "Leaves the voice channel anna is connected to")
@@ -1665,13 +1667,30 @@ def update_server_playlist(server_id: str, target_volume: float):
                     # The voice channel we're connected to, we check that it exists, as some playlists with broken links may trigger this code when the voice client for the server has been removed
                     voice = client.voice_client_in(client.get_server(server_id))
 
-                    # We check that it exists
-                    if voice is None:
-                        helpers.log_info(
-                            "Could not handle queue, as server ({0}) did not have a voice client.".format(
-                                server_id))
-                        # We're done here
-                        return False
+                    # We make sure we're connected to the right channel, by reconnecting to the right channel
+                    # Do note that this does 2 things:
+                    # If the bot is not connected to the server, but should be (which it should be at this stage in the code), it connects to the original channel it joined
+                    # Otherwise, it DOES NOT move itself between channels, but simply does nothing
+                    connection_coro = client.join_voice_channel(
+                        client.get_channel(server_queue_info_dict[server_id]["channel_id"]))
+                    connection_fut = asyncio.run_coroutine_threadsafe(connection_coro, client.loop)
+
+                    try:
+                        voice = connection_fut.result()
+
+                        print(" I guess we won")
+
+                        # We check that we're connected
+                        if voice is None:
+                            helpers.log_info(
+                                "Could not handle queue, as server ({0}) did not have a voice client.".format(
+                                    server_id))
+                            # We're done here
+                            return False
+
+                    except discord.ClientException:
+                        # We're connected to the server (doesn't check which channel)
+                        pass
 
                     # We have the correct line, so we try to create a ytdl player
                     # I found these ytdl options here: https://github.com/rg3/youtube-dl/blob/master/youtube_dl/YoutubeDL.py https://github.com/rg3/youtube-dl/blob/e7ac722d6276198c8b88986f06a4e3c55366cb58/README.md

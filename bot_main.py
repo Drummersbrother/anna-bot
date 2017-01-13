@@ -25,7 +25,7 @@ if __name__ == "__main__":
     client = helpers.actual_client
 
 # TODO Handle group calls and messages, and/or move to the commands extension
-# TODO add option to disable the add-bot command
+# TODO think about adding a last-online webpage/webserver
 
 @client.event
 async def on_message(message: discord.Message):
@@ -774,6 +774,11 @@ if __name__ == "__main__":
             except concurrent.futures.TimeoutError:
                 # We got a TimeoutError, which in general shouldn't be fatal.
                 helpers.log_info("Got a TimeoutError from client.run, logging in again.")
+            except discord.ConnectionClosed:
+                # We got a ConnectionClosed error, which should mean that the client was disconnected from the websocket for un-handlable reasons
+                # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
+                time.sleep(1)
+                helpers.log_info("Got a discord.ConnectionClosed from client.run, logging in again.")
             else:
                 # If we implement a stop feature in the future, we will need this to be able to stop the bot without using exceptions
                 break

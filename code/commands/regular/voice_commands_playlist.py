@@ -1675,20 +1675,26 @@ def update_server_playlist(server_id: str, target_volume: float):
                         client.get_channel(server_queue_info_dict[server_id]["channel_id"]))
                     connection_fut = asyncio.run_coroutine_threadsafe(connection_coro, client.loop)
 
-                    try:
-                        voice = connection_fut.result()
+                    # We check if we're connected to a voice channel
+                    if voice is None:
+                        try:
+                            voice = connection_fut.result()
 
-                        # We check that we're connected
-                        if voice is None:
+                            # We check that we're connected
+                            if voice is None:
+                                helpers.log_info(
+                                    "Could not handle queue, as server ({0}) did not have a voice client.".format(
+                                        server_id))
+                                # We're done here
+                                return False
+
+                        except Exception:
+                            # We don't accept errors
                             helpers.log_info(
-                                "Could not handle queue, as server ({0}) did not have a voice client.".format(
-                                    server_id))
+                                "Could not handle queue, as we got an error when we tried to connect to channel {1} on server ({0})".format(
+                                    server_id, server_queue_info_dict[server_id]["channel_id"]))
                             # We're done here
                             return False
-
-                    except discord.ClientException:
-                        # We're connected to the server (doesn't check which channel)
-                        pass
 
                     # We have the correct line, so we try to create a ytdl player
                     # I found these ytdl options here: https://github.com/rg3/youtube-dl/blob/master/youtube_dl/YoutubeDL.py https://github.com/rg3/youtube-dl/blob/e7ac722d6276198c8b88986f06a4e3c55366cb58/README.md

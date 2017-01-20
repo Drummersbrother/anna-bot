@@ -65,7 +65,7 @@ async def change_vanity_role(message: discord.Message, client: discord.Client, c
 
     # We check if we should fill the vanity commands dict
     if vanity_commands == -1:
-        await update_vanity_dictionary()
+        await update_vanity_dictionary(client, config)
 
     # We check if the command was issued in a PM and if the server where the command was issued has any vanity roles
     if message.channel.is_private:

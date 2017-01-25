@@ -3,6 +3,13 @@
     "app_client_id": APP ID HERE,
     "token": "BOT TOKEN HERE"
   },
+  "webserver_config": {
+    "use_webserver": false,
+    "server_address": "SERVER ADDRESS/IP",
+    "server_port": PORT HERE,
+    "auth_token": "RANDOM TOKEN, MATCH WITH SERVER",
+    "update_interval_seconds" : 60
+  },
   "add_bot_cmd": {
     "enabled": true
   },

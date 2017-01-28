@@ -65,7 +65,7 @@ async def change_vanity_role(message: discord.Message, client: discord.Client, c
 
     # We check if we should fill the vanity commands dict
     if vanity_commands == -1:
-        await update_vanity_dictionary()
+        await update_vanity_dictionary(client, config)
 
     # We check if the command was issued in a PM and if the server where the command was issued has any vanity roles
     if message.channel.is_private:
@@ -81,7 +81,7 @@ async def change_vanity_role(message: discord.Message, client: discord.Client, c
         return
 
     # We remove the anna-bot mention and parse the role that the user wants to change to
-    clean_message_content = helpers.remove_anna_mention(message)[len("role change "):].lower().strip()
+    clean_message_content = helpers.remove_anna_mention(client, message)[len("role change "):].lower().strip()
 
     # We check if the role exists in the vanity command dictionary, if it doesn't we tell the user and return
     if not clean_message_content in vanity_commands[message.server.id]:

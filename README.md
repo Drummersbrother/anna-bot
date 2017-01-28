@@ -8,6 +8,9 @@ python3.5
 discord.py >= 0.16 (https://github.com/Rapptz/discord.py)
 youtube_dl
 ffmpeg/avconv
+aiohttp
+cchardet
+aiodns
 ```
 
 ### Running it

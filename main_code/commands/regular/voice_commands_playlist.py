@@ -1114,6 +1114,52 @@ async def cmd_voice_queue_remove(message: discord.Message, client: discord.Clien
         return
 
 
+@command_decorator.command("queue skip", "Alias for **queue remove 0**.")
+async def cmd_voice_queue_remove(message: discord.Message, client: discord.Client, config: dict):
+    """This method is an alias for queue remove 0."""
+
+    # We check if the issuing user has the proper permissions on this server
+    if not await permission_checker(message, client, config):
+        # We're done here
+        return
+
+    # We check if the message was sent in a server where we are connected to a voice channel
+    if client.voice_client_in(message.server) is None:
+        # There is no voice client for this server
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I'm not connected to any voice channels on this server, so there isn't any queue.")
+        # We're done here
+        return
+
+    # We check if there are any stream players in the server
+    if len(server_queue_info_dict[message.server.id]["queue"]) == 0:
+        # There is no audio playing in this server
+        await client.send_message(message.channel,
+                                  message.author.mention + ", there isn't anything in the queue on this server, so you can't skip anything in it.")
+        # We're done here
+        return
+
+    # We check if the specified id is the front of the queue and we are using playlists
+    if server_queue_info_dict[message.server.id]["playlist_info"]["is_playing"]:
+        # We stop the player, and we call the queue handler on it
+        server_queue_info_dict[message.server.id]["queue"][0].stop()
+
+        # We tell the user that we've removed the player from the queue
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I've now skipped an entry in the current playlist, but the playlist will continue.")
+
+    else:
+        # We stop the player, and it will be removed by the queue handler
+        server_queue_info_dict[message.server.id]["queue"][0].stop()
+
+        # We tell the user that we've removed the player from the queue
+        await client.send_message(message.channel,
+                                  message.author.mention + ", I've now skipped an entry in the queue.")
+
+    # We log that we've removed the player from the queue
+    helpers.log_info("Skipped entry in queue on server {0} ({1}).".format(message.server.name, message.server.id))
+
+
 @command_decorator.command("queue clear", "Clears the current voice queue, and stops the currently playing audio.")
 async def cmd_voice_queue_clear(message: discord.Message, client: discord.Client, config: dict):
     """This method clears/resets the current queue for the server that ít was called from."""

@@ -28,8 +28,8 @@ if config["log_config"]["use_email_notifications"]:
                                                              config["log_config"]["email_settings"]["send_to"],
                                                              config["log_config"]["email_settings"]["subject"],
                                                              credentials=(
-                                                             config["log_config"]["email_settings"]["username"],
-                                                             config["log_config"]["email_settings"]["password"]),
+                                                                 config["log_config"]["email_settings"]["username"],
+                                                                 config["log_config"]["email_settings"]["password"]),
                                                              secure=())
 
     # We change the level so it only sends emails about warnings or errors
@@ -45,6 +45,7 @@ role_id_regex = re.compile(r'<@&\d+>')
 
 # The client object
 actual_client = discord.Client(cache_auth=False)
+
 
 def write_config(config_temp: dict):
     """This function writes the passed dict out to the config file as json."""

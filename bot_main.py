@@ -3,26 +3,29 @@ import concurrent.futures
 import json
 import time
 
+import aiohttp
+import async_timeout
 import discord
 
-import code.command_decorator
-import code.commands.admin.broadcast
-import code.commands.admin.change_icon
-import code.commands.admin.list_referrals
-import code.commands.regular.gen_bot_invite
-import code.commands.regular.invite_link
-import code.commands.regular.list_ids
-import code.commands.regular.report_stats
-import code.commands.regular.start_server
-import code.commands.regular.vanity_role_commands
-import code.commands.regular.voice_commands_playlist
-import code.commands.regular.warning_commands
-import code.commands.regular.who_r_u
-from code import helpers
+import main_code.command_decorator
+import main_code.commands.admin.broadcast
+import main_code.commands.admin.change_icon
+import main_code.commands.admin.list_referrals
+import main_code.commands.regular.gen_bot_invite
+import main_code.commands.regular.invite_link
+import main_code.commands.regular.list_ids
+import main_code.commands.regular.report_stats
+import main_code.commands.regular.start_server
+import main_code.commands.regular.vanity_role_commands
+import main_code.commands.regular.voice_commands_playlist
+import main_code.commands.regular.warning_commands
+import main_code.commands.regular.who_r_u
+from main_code import helpers
 
 if __name__ == "__main__":
     # Setting up the client object
     client = helpers.actual_client
+
 
 # TODO Handle group calls and messages, and/or move to the commands extension
 # TODO think about adding a last-online webpage/webserver
@@ -319,6 +322,11 @@ async def on_member_remove(member: discord.Member):
                                           config["leave_msg"]["leave_msg"].format(member.mention, member.server.name))
 
 
+@client.event
+async def on_member_update(before: discord.Member, after: discord.Member):
+    """This method handles people updating their status and such, it needs to run fast to not be a performance hog."""
+    # TODO do this
+
 async def join_welcome_message(member: discord.Member):
     """This function is called when a user joins a server, and welcomes them if the server has enabled the welcome message feature."""
 
@@ -537,7 +545,7 @@ async def referral_reward_handler(member: discord.Member, num_refs: int):
                     await client.add_roles(member, current_reward_role)
 
 
-@code.command_decorator.command("help", "Do I really need to explain this...")
+@main_code.command_decorator.command("help", "Do I really need to explain this...")
 async def cmd_help(message: discord.Message, passed_client: discord.Client, passed_config: dict):
     """This method is called to handle someone needing information about the commands they can use anna for.
     Because of code simplicity this is one of the command functions that needs to stay in the __init__py file."""
@@ -630,7 +638,7 @@ async def cmd_help(message: discord.Message, passed_client: discord.Client, pass
                                      "To use commands in a regular server channel, just do \"" + client_mention + " COMMAND\"")
 
 
-@code.command_decorator.command("reload config", "Reloads the config file that anna-bot uses.", admin=True)
+@main_code.command_decorator.command("reload config", "Reloads the config file that anna-bot uses.", admin=True)
 async def cmd_admin_reload_config(message: discord.Message, passed_client: discord.Client, passed_config: dict):
     """This method is used to handle an admin user wanting us to reload the config file.
     Because of code simplicity this is one of the command functions that needs to stay in the __init__py file."""
@@ -667,7 +675,7 @@ async def cmd_admin_reload_config(message: discord.Message, passed_client: disco
     helpers.log_info("Updating vanity commands...")
 
     # Updating the vanity command dict because the config file could have changed the vanity setup
-    await code.commands.regular.vanity_role_commands.update_vanity_dictionary(passed_client, passed_config)
+    await main_code.commands.regular.vanity_role_commands.update_vanity_dictionary(passed_client, passed_config)
 
     # Logging that we're done updating the vanity commands
     helpers.log_info("Done updating vanity commands")
@@ -699,6 +707,40 @@ def set_special_param(index: int, value):
         config = value
 
 
+async def webserver_post_last_online_list(server_address: str, server_port: int, auth_token: str, interval: int):
+    """This method is called periodically and handler posting data about last online times for users
+    on a discord server to an anna-falcon-server instance."""
+
+    async def do_async_list_post(passed_session: aiohttp.ClientSession):
+        try:
+            with async_timeout.timeout(interval / 2, loop=client.loop):
+                return await asyncio.wait_for(
+                    passed_session.post("http://" + server_address + ":{0}".format(server_port), timeout=interval / 2,
+                                        data=last_online_time_dict), interval / 2, loop=client.loop)
+        except (asyncio.TimeoutError, asyncio.CancelledError) as e:
+            helpers.log_warning("Got error when trying to send data to webserver, info: \n{0}".format(e))
+
+    # This runs forever (until the bot exits)
+    while True:
+        # We log
+        helpers.log_info("Sending last-online-list info to webserver at {0}:{1}.".format(server_address, server_port))
+
+        # We post the data to the appropriate address and port
+        async with aiohttp.ClientSession(loop=client.loop, connector=aiohttp.TCPConnector(verify_ssl=False,
+                                                                                          keepalive_timeout=2)) as session:
+            try:
+                (await do_async_list_post(session)).close()
+            except Exception as e:
+                helpers.log_warning("Got unusual error when trying to send data to webserver, info: \n{0}".format(e))
+        helpers.log_info(
+            "Sent last-online-list info to webserver at {0}:{1}. Now waiting for {2} seconds.".format(server_address,
+                                                                                                      server_port,
+                                                                                                      interval))
+
+        # We wait until the next time we're supposed to send the info.
+        await asyncio.sleep(interval)
+
+
 if __name__ == "__main__":
 
     # Logging that we're loading the config
@@ -721,12 +763,12 @@ if __name__ == "__main__":
     # Logging that we're done loading the config
     helpers.log_info("Done loading the config")
 
-    commands = code.command_decorator.get_command_lists()
+    commands = main_code.command_decorator.get_command_lists()
 
     # The commands people can use and the method that will be called when a command is used
     # The special params are defined in the on_message function, but they basically just pass all the special params as KW arguments
     # Most commands use the helpers.command(command_trigger, description, special_params, admin) decorator, but these cannot use that since they have config based command parameters
-    public_commands = [dict(command="invite", method=code.commands.regular.invite_link.invite_link,
+    public_commands = [dict(command="invite", method=main_code.commands.regular.invite_link.invite_link,
                             helptext="Generate an invite link to the current channel, the link will be valid for " + str(
                                 config["invite_cmd"]["invite_valid_time_min"] if config["invite_cmd"][
                                                                                      "invite_valid_time_min"] > 0 else "infinite") + " minutes and " + str(
@@ -734,7 +776,7 @@ if __name__ == "__main__":
                                                                                "invite_max_uses"] > 0 else "infinite") + " use[s].",
                             special_params=[False, False]),
                        dict(command=config["start_server_cmd"]["start_server_command"],
-                            method=code.commands.regular.start_server.start_server,
+                            method=main_code.commands.regular.start_server.start_server,
                             helptext="Start the minecraft server (if the channel and users have the necessary permissions to do so).",
                             special_params=[False, False])
                        ]
@@ -762,6 +804,17 @@ if __name__ == "__main__":
 
     # Storing the time at which the bot was started
     config["stats"]["volatile"]["start_time"] = time.time()
+
+    # We set up the webserver handling if the user has indicated that we're using a webserver
+    if config["webserver_config"]["use_webserver"]:
+        # We create the object we're going to send to the webserver
+        last_online_time_dict = {"servers": [], "auth_token": config["webserver_config"]["auth_token"]}
+
+        webserver_task = client.loop.create_task(
+            webserver_post_last_online_list(config["webserver_config"]["server_address"],
+                                            config["webserver_config"]["server_port"],
+                                            config["webserver_config"]["auth_token"],
+                                            config["webserver_config"]["update_interval_seconds"]))
 
     try:
         # We have a while loop here because some errors are only catchable from the client.run method, as they are raised by tasks in the event loop

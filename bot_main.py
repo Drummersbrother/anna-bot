@@ -325,7 +325,43 @@ async def on_member_remove(member: discord.Member):
 @client.event
 async def on_member_update(before: discord.Member, after: discord.Member):
     """This method handles people updating their status and such, it needs to run fast to not be a performance hog."""
-    # TODO do this
+    # We check if the user update is someone changing their online-status from not-offline to offline
+    if before.status != discord.Status.offline and after.status == discord.Status.offline:
+        # We add the user to the last-online-list dict
+        # We get the server list index of the server we want to add this user's info to
+        info_dict_servers_index = [inx for inx, x in enumerate(last_online_time_dict["servers"]) if
+                                   x["server_id"] == after.server.id]
+
+        # We check if the server that the user is on exists
+        if not info_dict_servers_index:
+            # We add an entry for the new server
+            info_dict_servers_index = len(last_online_time_dict["servers"])
+            last_online_time_dict["servers"].append({"server_id": after.server.id, "users": []})
+        else:
+            info_dict_servers_index = info_dict_servers_index[0]
+
+        # We add the user info to the server entry
+
+        # We check if the user already has an entry
+        info_dict_users_index = [inx for inx, x in
+                                 enumerate(last_online_time_dict["servers"][info_dict_servers_index]["users"]) if
+                                 x.get("username", "") == "#".join((after.name, str(after.discriminator)))]
+
+        if not info_dict_users_index:
+            # We add an entry for the new user
+            info_dict_users_index = len(last_online_time_dict["servers"][info_dict_servers_index]["users"])
+            last_online_time_dict["servers"][info_dict_servers_index]["users"].append({})
+        else:
+            info_dict_users_index = info_dict_users_index[0]
+
+        # We actually add the data
+        last_online_time_dict["servers"][info_dict_servers_index]["users"][info_dict_users_index][
+            "username"] = "#".join((after.name, str(after.discriminator)))
+        last_online_time_dict["servers"][info_dict_servers_index]["users"][info_dict_users_index][
+            "icon_url"] = after.avatar_url if after.avatar_url is not "" else after.default_avatar_url
+        last_online_time_dict["servers"][info_dict_servers_index]["users"][info_dict_users_index][
+            "last_seen_time"] = time.asctime(time.gmtime())
+
 
 async def join_welcome_message(member: discord.Member):
     """This function is called when a user joins a server, and welcomes them if the server has enabled the welcome message feature."""
@@ -707,7 +743,7 @@ def set_special_param(index: int, value):
         config = value
 
 
-async def webserver_post_last_online_list(server_address: str, server_port: int, auth_token: str, interval: int):
+async def webserver_post_last_online_list(server_address: str, server_port: int, interval: int):
     """This method is called periodically and handler posting data about last online times for users
     on a discord server to an anna-falcon-server instance."""
 
@@ -715,8 +751,9 @@ async def webserver_post_last_online_list(server_address: str, server_port: int,
         try:
             with async_timeout.timeout(interval / 2, loop=client.loop):
                 return await asyncio.wait_for(
-                    passed_session.post("http://" + server_address + ":{0}".format(server_port), timeout=interval / 2,
-                                        data=last_online_time_dict), interval / 2, loop=client.loop)
+                    passed_session.post("http://" + server_address + ":{0}/lastseen".format(server_port),
+                                        timeout=interval / 2,
+                                        data=json.dumps(last_online_time_dict)), interval / 2, loop=client.loop)
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:
             helpers.log_warning("Got error when trying to send data to webserver, info: \n{0}".format(e))
 
@@ -727,7 +764,7 @@ async def webserver_post_last_online_list(server_address: str, server_port: int,
 
         # We post the data to the appropriate address and port
         async with aiohttp.ClientSession(loop=client.loop, connector=aiohttp.TCPConnector(verify_ssl=False,
-                                                                                          keepalive_timeout=2)) as session:
+                                                                                          keepalive_timeout=5)) as session:
             try:
                 (await do_async_list_post(session)).close()
             except Exception as e:
@@ -813,7 +850,6 @@ if __name__ == "__main__":
         webserver_task = client.loop.create_task(
             webserver_post_last_online_list(config["webserver_config"]["server_address"],
                                             config["webserver_config"]["server_port"],
-                                            config["webserver_config"]["auth_token"],
                                             config["webserver_config"]["update_interval_seconds"]))
 
     try:

@@ -6,6 +6,7 @@ import time
 import aiohttp
 import async_timeout
 import discord
+import websockets.exceptions
 
 import main_code.command_decorator
 import main_code.commands.admin.broadcast
@@ -868,6 +869,16 @@ if __name__ == "__main__":
                 # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
                 time.sleep(1)
                 helpers.log_info("Got a discord.ConnectionClosed from client.run, logging in again.")
+            except websockets.exceptions.ConnectionClosed:
+                # We got a ConnectionClosed error, which should mean that the client was disconnected from the websocket for un-handlable reasons
+                # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
+                time.sleep(1)
+                helpers.log_info("Got a websockets.exceptions.ConnectionClosed from client.run, logging in again.")
+            except ConnectionResetError:
+                # We got a ConnectionReset error, which should mean that the client was disconnected from the websocket for un-handlable reasons
+                # We wait for a bit to not overload/ddos the discord servers if the problem is on their side (((it is)))
+                time.sleep(1)
+                helpers.log_info("Got a ConnectionResetError from client.run, logging in again.")
             else:
                 # If we implement a stop feature in the future, we will need this to be able to stop the bot without using exceptions
                 break

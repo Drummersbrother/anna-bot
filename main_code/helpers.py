@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging.handlers
 import re
+import smtplib
 
 import discord
 
@@ -88,8 +89,10 @@ def get_formatted_duration_fromtime(duration_seconds_noformat):
 
 def log_text(text, level):
     print(text)
-    logger.log(level, text)
-
+    try:
+        logger.log(level, text)
+    except smtplib.SMTPException as e:
+        print("Got error when trying to send email notification, error message: {0}".format(str(e)))
 
 def log_debug(text):
     log_text(text, 10)

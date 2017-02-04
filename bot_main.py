@@ -327,7 +327,8 @@ async def on_member_remove(member: discord.Member):
 async def on_member_update(before: discord.Member, after: discord.Member):
     """This method handles people updating their status and such, it needs to run fast to not be a performance hog."""
     # We check if the user update is someone changing their online-status from not-offline to offline
-    if before.status != discord.Status.offline and after.status == discord.Status.offline:
+    if (before.status != discord.Status.offline and after.status == discord.Status.offline) and (
+    config["webserver_config"]["use_webserver"]):
         # We add the user to the last-online-list dict
         # We get the server list index of the server we want to add this user's info to
         info_dict_servers_index = [inx for inx, x in enumerate(last_online_time_dict["servers"]) if

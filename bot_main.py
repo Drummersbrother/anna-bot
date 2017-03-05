@@ -1,6 +1,7 @@
 import asyncio
 import concurrent.futures
 import json
+import sys
 import time
 
 import aiohttp
@@ -29,7 +30,6 @@ if __name__ == "__main__":
 
 
 # TODO Handle group calls and messages, and/or move to the commands extension
-# TODO think about adding a last-online webpage/webserver
 
 @client.event
 async def on_message(message: discord.Message):
@@ -539,6 +539,23 @@ async def join_referral_asker(member: discord.Member):
             break
 
 
+@client.event
+async def on_error(event, *args, **kwargs):
+    """This event is called when an error is raised by the client,
+    and we override the default behaviour to be able to log and catch errors."""
+
+    # We retrieve the exception we're handling
+    e_type, e, e_traceback = sys.exc_info()
+
+    # We log the event in different ways depending on the severity and type of error
+    if e_type == websockets.exceptions.ConnectionClosed and (e.code is 1000):
+        # This error is handlable and a result of the discord servers being flaky af
+        helpers.log_info("Got websockets.exceptions.ConnectionClosed code 1000 from event {0}.".format(event))
+    else:
+        helpers.log_error("Ignoring exception in {}".format(event))
+        e_traceback.print_exc()
+
+
 async def referral_reward_handler(member: discord.Member, num_refs: int):
     """This method is used to (according to the config) reward users with roles once they get a certain amount of referrals."""
 
@@ -865,16 +882,28 @@ if __name__ == "__main__":
             except concurrent.futures.TimeoutError:
                 # We got a TimeoutError, which in general shouldn't be fatal.
                 helpers.log_info("Got a TimeoutError from client.run, logging in again.")
-            except discord.ConnectionClosed:
+            except discord.ConnectionClosed as e:
+                # We got a ConnectionClosed error, which should mean that the client was disconnected from the websocket for un-handlable reasons
+                # We reconnect if it's a handlable reason
+                if e.code == 1000:
+                    # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
+                    time.sleep(1)
+                    helpers.log_info("Got a discord.ConnectionClosed code 1000 from client.run, logging in again.")
+                else:
+                    helpers.log_info("Got a discord.ConnectionClosed from client.run, but not logging in again.")
+                    break
+            except websockets.exceptions.ConnectionClosed as e:
                 # We got a ConnectionClosed error, which should mean that the client was disconnected from the websocket for un-handlable reasons
                 # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
-                time.sleep(1)
-                helpers.log_info("Got a discord.ConnectionClosed from client.run, logging in again.")
-            except websockets.exceptions.ConnectionClosed:
-                # We got a ConnectionClosed error, which should mean that the client was disconnected from the websocket for un-handlable reasons
-                # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
-                time.sleep(1)
-                helpers.log_info("Got a websockets.exceptions.ConnectionClosed from client.run, logging in again.")
+                if e.code == 1000:
+                    # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
+                    time.sleep(1)
+                    helpers.log_info(
+                        "Got a websockets.exceptions.ConnectionClosed code 1000 from client.run, logging in again.")
+                else:
+                    helpers.log_info(
+                        "Got a websockets.exceptions.ConnectionClosed from client.run, but not logging in again.")
+                    break
             except ConnectionResetError:
                 # We got a ConnectionReset error, which should mean that the client was disconnected from the websocket for un-handlable reasons
                 # We wait for a bit to not overload/ddos the discord servers if the problem is on their side (((it is)))

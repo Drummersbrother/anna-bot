@@ -774,7 +774,7 @@ async def webserver_post_last_online_list(server_address: str, server_port: int,
                                         timeout=interval / 2,
                                         data=json.dumps(last_online_time_dict)), interval / 2, loop=client.loop)
         except (asyncio.TimeoutError, asyncio.CancelledError) as e:
-            helpers.log_warning("Got error when trying to send data to webserver, info: \n{0}".format(e))
+            helpers.log_info("Got error when trying to send data to webserver, info: \n{0}".format(e))
 
     # This runs forever (until the bot exits)
     while True:
@@ -787,9 +787,11 @@ async def webserver_post_last_online_list(server_address: str, server_port: int,
             try:
                 (await do_async_list_post(session)).close()
             except Exception as e:
-                helpers.log_warning("Got unusual error when trying to send data to webserver, info: \n{0}".format(e))
-        helpers.log_info(
-            "Sent last-online-list info to webserver at {0}:{1}. Now waiting for {2} seconds.".format(server_address,
+                helpers.log_info("Got unusual error when trying to send data to webserver, info: \n{0}".format(e))
+            else:
+                helpers.log_info(
+                    "Sent last-online-list info to webserver at {0}:{1}. Now waiting for {2} seconds.".format(
+                        server_address,
                                                                                                       server_port,
                                                                                                       interval))
 

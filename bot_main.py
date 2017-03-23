@@ -3,6 +3,7 @@ import concurrent.futures
 import json
 import sys
 import time
+import traceback
 
 import aiohttp
 import async_timeout
@@ -22,6 +23,7 @@ import main_code.commands.regular.vanity_role_commands
 import main_code.commands.regular.voice_commands_playlist
 import main_code.commands.regular.warning_commands
 import main_code.commands.regular.who_r_u
+import main_code.commands.regular.whois
 from main_code import helpers
 
 if __name__ == "__main__":
@@ -553,7 +555,7 @@ async def on_error(event, *args, **kwargs):
         helpers.log_info("Got websockets.exceptions.ConnectionClosed code 1000 from event {0}.".format(event))
     else:
         helpers.log_error("Ignoring exception in {}".format(event))
-        e_traceback.print_exc()
+        traceback.print_exc()
 
 
 async def referral_reward_handler(member: discord.Member, num_refs: int):
@@ -893,7 +895,7 @@ if __name__ == "__main__":
                     helpers.log_info("Got a discord.ConnectionClosed code 1000 from client.run, logging in again.")
                 else:
                     helpers.log_info("Got a discord.ConnectionClosed from client.run, but not logging in again.")
-                    break
+                    raise e
             except websockets.exceptions.ConnectionClosed as e:
                 # We got a ConnectionClosed error, which should mean that the client was disconnected from the websocket for un-handlable reasons
                 # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
@@ -905,7 +907,7 @@ if __name__ == "__main__":
                 else:
                     helpers.log_info(
                         "Got a websockets.exceptions.ConnectionClosed from client.run, but not logging in again.")
-                    break
+                    raise e
             except ConnectionResetError:
                 # We got a ConnectionReset error, which should mean that the client was disconnected from the websocket for un-handlable reasons
                 # We wait for a bit to not overload/ddos the discord servers if the problem is on their side (((it is)))

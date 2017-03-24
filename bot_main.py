@@ -550,7 +550,7 @@ async def on_error(event, *args, **kwargs):
     e_type, e, e_traceback = sys.exc_info()
 
     # We log the event in different ways depending on the severity and type of error
-    if e_type == websockets.exceptions.ConnectionClosed and (e.code is 1000):
+    if isinstance(e, websockets.exceptions.ConnectionClosed) and (e.code == 1000):
         # This error is handlable and a result of the discord servers being flaky af
         helpers.log_info("Got websockets.exceptions.ConnectionClosed code 1000 from event {0}.".format(event))
     else:

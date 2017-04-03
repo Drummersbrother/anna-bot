@@ -801,135 +801,137 @@ async def webserver_post_last_online_list(server_address: str, server_port: int,
         await asyncio.sleep(interval)
 
 
-if __name__ == "__main__":
+def start_anna():
+	"""Starts anna-bot, and returns when anna exits. If anna throws an exception, this exception is propagated. If anna exits peacefully, this returns with no exception."""
+	
+	# Logging that we're loading the config
+	helpers.log_info("Loading the config file...")
 
-    # Logging that we're loading the config
-    helpers.log_info("Loading the config file...")
+	# The config object
+	config = {}
 
-    # The config object
-    config = {}
+	# Loading the config file and then parsing it as json and storing it in a python object
+	with open("config.json", mode="r", encoding="utf-8") as config_file:
+		config = json.load(config_file)
 
-    # Loading the config file and then parsing it as json and storing it in a python object
-    with open("config.json", mode="r", encoding="utf-8") as config_file:
-        config = json.load(config_file)
+	# We store the bot start time in the volatile stats section
+	config["stats"]["volatile"]["start_time"] = time.time()
 
-    # We store the bot start time in the volatile stats section
-    config["stats"]["volatile"]["start_time"] = time.time()
+	# We write the modified config back to the file
+	with open("config.json", mode="w", encoding="utf-8") as config_file:
+		json.dump(config, config_file, indent=2, sort_keys=False)
 
-    # We write the modified config back to the file
-    with open("config.json", mode="w", encoding="utf-8") as config_file:
-        json.dump(config, config_file, indent=2, sort_keys=False)
+	# Logging that we're done loading the config
+	helpers.log_info("Done loading the config")
 
-    # Logging that we're done loading the config
-    helpers.log_info("Done loading the config")
+	commands = main_code.command_decorator.get_command_lists()
 
-    commands = main_code.command_decorator.get_command_lists()
+	# The commands people can use and the method that will be called when a command is used
+	# The special params are defined in the on_message function, but they basically just pass all the special params as KW arguments
+	# Most commands use the helpers.command(command_trigger, description, special_params, admin) decorator, but these cannot use that since they have config based command parameters
+	public_commands = [dict(command="invite", method=main_code.commands.regular.invite_link.invite_link,
+							helptext="Generate an invite link to the current channel, the link will be valid for " + str(
+								config["invite_cmd"]["invite_valid_time_min"] if config["invite_cmd"][
+																					 "invite_valid_time_min"] > 0 else "infinite") + " minutes and " + str(
+								config["invite_cmd"]["invite_max_uses"] if config["invite_cmd"][
+																			   "invite_max_uses"] > 0 else "infinite") + " use[s].",
+							special_params=[False, False]),
+					   dict(command=config["start_server_cmd"]["start_server_command"],
+							method=main_code.commands.regular.start_server.start_server,
+							helptext="Start the minecraft server (if the channel and users have the necessary permissions to do so).",
+							special_params=[False, False])
+					   ]
 
-    # The commands people can use and the method that will be called when a command is used
-    # The special params are defined in the on_message function, but they basically just pass all the special params as KW arguments
-    # Most commands use the helpers.command(command_trigger, description, special_params, admin) decorator, but these cannot use that since they have config based command parameters
-    public_commands = [dict(command="invite", method=main_code.commands.regular.invite_link.invite_link,
-                            helptext="Generate an invite link to the current channel, the link will be valid for " + str(
-                                config["invite_cmd"]["invite_valid_time_min"] if config["invite_cmd"][
-                                                                                     "invite_valid_time_min"] > 0 else "infinite") + " minutes and " + str(
-                                config["invite_cmd"]["invite_max_uses"] if config["invite_cmd"][
-                                                                               "invite_max_uses"] > 0 else "infinite") + " use[s].",
-                            special_params=[False, False]),
-                       dict(command=config["start_server_cmd"]["start_server_command"],
-                            method=main_code.commands.regular.start_server.start_server,
-                            helptext="Start the minecraft server (if the channel and users have the necessary permissions to do so).",
-                            special_params=[False, False])
-                       ]
+	# The commands authorised users can use, these are some pretty powerful commands, so be careful with which users you give administrative access to the bot to
+	admin_commands = []
 
-    # The commands authorised users can use, these are some pretty powerful commands, so be careful with which users you give administrative access to the bot to
-    admin_commands = []
+	# We extend the lists with the decorator commands
+	public_commands.extend(commands[0])
+	admin_commands.extend(commands[1])
 
-    # We extend the lists with the decorator commands
-    public_commands.extend(commands[0])
-    admin_commands.extend(commands[1])
+	# The functions to call when someone joins the server, these get passed the member object of the user who joined
+	join_functions = [join_welcome_message,
+					  join_automatic_role,
+					  join_referral_asker]
 
-    # The functions to call when someone joins the server, these get passed the member object of the user who joined
-    join_functions = [join_welcome_message,
-                      join_automatic_role,
-                      join_referral_asker]
+	# The list of message ids (this list will fill and empty) that the command checker should ignore
+	ignored_command_message_ids = []
 
-    # The list of message ids (this list will fill and empty) that the command checker should ignore
-    ignored_command_message_ids = []
+	# The list of tuples of voice stream players and server ids
+	server_and_stream_players = []
 
-    # The list of tuples of voice stream players and server ids
-    server_and_stream_players = []
+	# Logging that we're starting the bot
+	helpers.log_info("Anna-bot is now logging in (you'll notice if we get any errors)")
 
-    # Logging that we're starting the bot
-    helpers.log_info("Anna-bot is now logging in (you'll notice if we get any errors)")
+	# Storing the time at which the bot was started
+	config["stats"]["volatile"]["start_time"] = time.time()
 
-    # Storing the time at which the bot was started
-    config["stats"]["volatile"]["start_time"] = time.time()
+	# We set up the webserver handling if the user has indicated that we're using a webserver
+	if config["webserver_config"]["use_webserver"]:
+		# We create the object we're going to send to the webserver
+		last_online_time_dict = {"servers": [], "auth_token": config["webserver_config"]["auth_token"]}
 
-    # We set up the webserver handling if the user has indicated that we're using a webserver
-    if config["webserver_config"]["use_webserver"]:
-        # We create the object we're going to send to the webserver
-        last_online_time_dict = {"servers": [], "auth_token": config["webserver_config"]["auth_token"]}
+		webserver_task = client.loop.create_task(
+			webserver_post_last_online_list(config["webserver_config"]["server_address"],
+											config["webserver_config"]["server_port"],
+											config["webserver_config"]["update_interval_seconds"]))
 
-        webserver_task = client.loop.create_task(
-            webserver_post_last_online_list(config["webserver_config"]["server_address"],
-                                            config["webserver_config"]["server_port"],
-                                            config["webserver_config"]["update_interval_seconds"]))
+	try:
+		# We have a while loop here because some errors are only catchable from the client.run method, as they are raised by tasks in the event loop
+		# Some of these errors are not, and shouldn't, be fatal to the bot, so we catch them and relaunch the client.
+		# The errors we don't catch however, rise to the next try except and actually turn off the bot
+		while True:
+			try:
+				# Starting and authenticating the bot
+				client.run(config["credentials"]["token"])
+			except concurrent.futures.TimeoutError:
+				# We got a TimeoutError, which in general shouldn't be fatal.
+				helpers.log_info("Got a TimeoutError from client.run, logging in again.")
+			except discord.ConnectionClosed as e:
+				# We got a ConnectionClosed error, which should mean that the client was disconnected from the websocket for un-handlable reasons
+				# We reconnect if it's a handlable reason
+				if e.code == 1000:
+					# We wait for a bit to not overload/ddos the discord servers if the problem is on their side
+					time.sleep(1)
+					helpers.log_info("Got a discord.ConnectionClosed code 1000 from client.run, logging in again.")
+				else:
+					helpers.log_info("Got a discord.ConnectionClosed from client.run, but not logging in again.")
+					raise e
+			except websockets.exceptions.ConnectionClosed as e:
+				# We got a ConnectionClosed error, which should mean that the client was disconnected from the websocket for un-handlable reasons
+				# We wait for a bit to not overload/ddos the discord servers if the problem is on their side
+				if e.code == 1000:
+					# We wait for a bit to not overload/ddos the discord servers if the problem is on their side
+					time.sleep(1)
+					helpers.log_info(
+						"Got a websockets.exceptions.ConnectionClosed code 1000 from client.run, logging in again.")
+				else:
+					helpers.log_info(
+						"Got a websockets.exceptions.ConnectionClosed from client.run, but not logging in again.")
+					raise e
+			except ConnectionResetError:
+				# We got a ConnectionReset error, which should mean that the client was disconnected from the websocket for un-handlable reasons
+				# We wait for a bit to not overload/ddos the discord servers if the problem is on their side (((it is)))
+				time.sleep(1)
+				helpers.log_info("Got a ConnectionResetError from client.run, logging in again.")
+			else:
+				# If we implement a stop feature in the future, we will need this to be able to stop the bot without using exceptions
+				break
+	except:
+		# How did we exit?
+		helpers.log_warning("Did not get user interrupt, but still got an error, re-raising...")
+		raise
+	else:
+		# No error but we exited
+		helpers.log_info("Client exited, but we didn't get an error, probably CTRL+C or command exit...")
 
-    try:
-        # We have a while loop here because some errors are only catchable from the client.run method, as they are raised by tasks in the event loop
-        # Some of these errors are not, and shouldn't, be fatal to the bot, so we catch them and relaunch the client.
-        # The errors we don't catch however, rise to the next try except and actually turn off the bot
-        while True:
-            try:
-                # Starting and authenticating the bot
-                client.run(config["credentials"]["token"])
-            except concurrent.futures.TimeoutError:
-                # We got a TimeoutError, which in general shouldn't be fatal.
-                helpers.log_info("Got a TimeoutError from client.run, logging in again.")
-            except discord.ConnectionClosed as e:
-                # We got a ConnectionClosed error, which should mean that the client was disconnected from the websocket for un-handlable reasons
-                # We reconnect if it's a handlable reason
-                if e.code == 1000:
-                    # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
-                    time.sleep(1)
-                    helpers.log_info("Got a discord.ConnectionClosed code 1000 from client.run, logging in again.")
-                else:
-                    helpers.log_info("Got a discord.ConnectionClosed from client.run, but not logging in again.")
-                    raise e
-            except websockets.exceptions.ConnectionClosed as e:
-                # We got a ConnectionClosed error, which should mean that the client was disconnected from the websocket for un-handlable reasons
-                # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
-                if e.code == 1000:
-                    # We wait for a bit to not overload/ddos the discord servers if the problem is on their side
-                    time.sleep(1)
-                    helpers.log_info(
-                        "Got a websockets.exceptions.ConnectionClosed code 1000 from client.run, logging in again.")
-                else:
-                    helpers.log_info(
-                        "Got a websockets.exceptions.ConnectionClosed from client.run, but not logging in again.")
-                    raise e
-            except ConnectionResetError:
-                # We got a ConnectionReset error, which should mean that the client was disconnected from the websocket for un-handlable reasons
-                # We wait for a bit to not overload/ddos the discord servers if the problem is on their side (((it is)))
-                time.sleep(1)
-                helpers.log_info("Got a ConnectionResetError from client.run, logging in again.")
-            else:
-                # If we implement a stop feature in the future, we will need this to be able to stop the bot without using exceptions
-                break
-    except:
-        # How did we exit?
-        helpers.log_warning("Did not get user interrupt, but still got an error, re-raising...")
-        raise
-    else:
-        # No error but we exited
-        helpers.log_info("Client exited, but we didn't get an error, probably CTRL+C or command exit...")
+	# Calculating and formatting how long the bot was online so we can log it, this is on multiple statements for clarity
+	end_time = time.time()
+	uptime_secs_noformat = (end_time - config["stats"]["volatile"]["start_time"]) // 1
+	formatted_uptime = helpers.get_formatted_duration_fromtime(uptime_secs_noformat)
 
-    # Calculating and formatting how long the bot was online so we can log it, this is on multiple statements for clarity
-    end_time = time.time()
-    uptime_secs_noformat = (end_time - config["stats"]["volatile"]["start_time"]) // 1
-    formatted_uptime = helpers.get_formatted_duration_fromtime(uptime_secs_noformat)
-
-    # Logging that we've stopped the bot
-    helpers.log_info(
-        "Anna-bot has now exited (you'll notice if we got any errors), we have been up for {0}.".format(
-            formatted_uptime))
+	# Logging that we've stopped the bot
+	helpers.log_info(
+		"Anna-bot has now exited (you'll notice if we got any errors), we have been up for {0}.".format(
+			formatted_uptime))
+	

@@ -365,6 +365,41 @@ async def on_member_update(before: discord.Member, after: discord.Member):
 		last_online_time_dict["servers"][info_dict_servers_index]["users"][info_dict_users_index][
 			"last_seen_time"] = time.asctime(time.gmtime())
 
+	elif (before.status == discord.Status.offline and after.status == discord.Status.online) and (
+	config["webserver_config"]["use_webserver"]):
+
+		# We delete a user from the dict since the user went online
+		# We get the server list index of the server we want to remove this user's info from
+		info_dict_servers_index = [inx for inx, x in enumerate(last_online_time_dict["servers"]) if
+								   x["server_id"] == after.server.id]
+
+		# We check if the server that the user is on exists
+		if not info_dict_servers_index:
+			# We return, we tried to remove from something that doesn't exist
+			return
+
+		info_dict_servers_index = info_dict_servers_index[0]
+
+		# We remove the user info from the server entry and then check if we should remove the server entry
+
+		# We check if the user already has an entry
+		info_dict_users_index = [inx for inx, x in
+								 enumerate(last_online_time_dict["servers"][info_dict_servers_index]["users"]) if
+								 x.get("username", "") == "#".join((after.name, str(after.discriminator)))]
+
+		if not info_dict_users_index:
+			# We return, we tried to remove something that didn't exist from the beginning
+			return
+
+		info_dict_users_index = info_dict_users_index[0]
+
+		# We remove the user's data
+		del last_online_time_dict["servers"][info_dict_servers_index]["users"][info_dict_users_index]
+
+		# We check if we should remove the whole server entry (we check if the list of users is empty), and we delete it if possible
+		if len(last_online_time_dict["servers"][info_dict_servers_index]["users"]) == 0:
+			del last_online_time_dict["servers"][info_dict_servers_index]
+
 
 async def join_welcome_message(member: discord.Member):
 	"""This function is called when a user joins a server, and welcomes them if the server has enabled the welcome message feature."""

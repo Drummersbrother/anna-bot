@@ -3,6 +3,7 @@ import argparse
 import sys
 import os
 import subprocess
+import traceback
 
 from sys import platform as _platform
 from importlib.util import find_spec
@@ -44,7 +45,7 @@ def start_anna_bot(auto_restart: bool):
 	
 	# We verify that all required modules
 	if not verify_requirements():
-		print("You do not have all requirements installed, please see the readme.")
+		print("You do not have all requirements installed, please see the readme.") 
 	
 	# We import the anna-bot file
 	import bot_main
@@ -63,67 +64,10 @@ def start_anna_bot(auto_restart: bool):
 			
 			print("Exiting the launcher since anna-bot exited and you didn't use the --restart flag.")
 			break
-		except:
+		except BaseException:
 			# We got an exception that isn't supposed to be catched, so we raise it
 			print("Anna-bot exited with an un-handlable exception. Exiting launcher.")
 			raise
-	
-
-def start_anna_bot_subpr(auto_restart: bool):
-	interpreter = sys.executable
-
-	if interpreter is None: # This should never happen
-		raise RuntimeError("Was not able to find a python interpreter.")
-
-	# We verify that all required modules
-	if not verify_requirements():
-		print("You do not have all requirements installed, please see the readme.")
-
-	# The arguments of the subprocess command we have to use to run anna-bot
-	cmd = (interpreter, "bot_main.py")
-
-	while True:
-		try: # POPEN?
-			code = subprocess.call(cmd)
-		except KeyboardInterrupt:
-			# CTRL-C Should stop the launcher
-			code = 0
-			print("Anna-bot launcher got a CTRL-C.")
-			break
-		else: # This is executed if everything went fine and the bot process exited without and error status code
-			if code == 0:
-				break
-			elif code == 1:
-				print("Restarting anna-bot...")
-				continue
-			else:
-				if not auto_restart:
-					break
-
-	print("Anna-bot exited with code {0}.".format(code))
-
-
-def clear_screen():
-	"""This is to have a arch-independent clearing of the terminal"""
-	if WINDOWS:
-		os.system("cls")
-	else:
-		os.system("clear")
-
-
-def user_input():
-	"""Taking user input."""
-	return input("Anna-bot> ").lower().strip()
-
-
-def input_y_n():
-	"""A simple yes or no input method."""
-	choice = None
-	yes = ("yes", "y")
-	no = ("no", "n")
-	while choice not in yes and choice not in no:
-		choice = input("Yes/No > ").lower().strip()
-	return choice in yes
 
 
 # The command line args passed to the launcher
@@ -139,10 +83,11 @@ if __name__ == '__main__':
 		print("Starting anna-bot...")
 		try:
 			start_anna_bot(auto_restart=args.auto_restart)
-		except:
-			pass
+		except BaseException:
+		    e_type, e, e_traceback = sys.exc_info()
+		    print("Got exception from anna-bot, will exit. Here is the traceback: \n{0}".format(
+		        str("".join(traceback.format_exception(e_type, e, e_traceback)))))
 		finally:
 			print("Anna-bot launcher is now exiting.")
 	else:
 		print("Launcher invoked without the start (-s) flag. What did you think would happen? (Use --help for info about the different flags.)")
-		

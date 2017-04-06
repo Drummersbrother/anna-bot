@@ -13,6 +13,7 @@ ffmpeg/avconv
 aiohttp
 cchardet
 aiodns
+overwatch-api
 ```
 
 ### Running it

@@ -62,7 +62,7 @@ def overwatch_player_search(battletag: str):
     """Searches for a name with the overwatch api and returns a {"PC", "XB", "PS"} dict, 
     with some keys being None if there wasn't a player with that name"""
 
-    ow_client = OverwatchAPI()
+    ow_client = OverwatchAPI(1337) # We pass an arbitrary key, it's not used yet but it's required by the funciton signature
     
     # The result from the OW API
     api_result = ow_client.get_profile("pc", "global", battletag)

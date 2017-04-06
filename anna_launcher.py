@@ -14,7 +14,7 @@ import discord
 import bot_main
 
 # The modules that have to be available for anna-bot to be able to run
-required_modules = {"discord", "youtube_dl", "aiohttp", "aiodns", "asyncio"}
+required_modules = {"discord", "youtube_dl", "aiohttp", "aiodns", "asyncio", "overwatch_api"}
 
 if _platform == "win32":
 	# We're running on windows

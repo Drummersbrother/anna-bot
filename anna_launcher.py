@@ -11,8 +11,6 @@ from sys import platform as _platform
 
 import discord
 
-import bot_main
-
 # The modules that have to be available for anna-bot to be able to run
 required_modules = {"discord", "youtube_dl", "aiohttp", "aiodns", "asyncio", "overwatch_api"}
 
@@ -52,6 +50,9 @@ def start_anna_bot(auto_restart: bool):
 	# We verify that all required modules
 	if not verify_requirements():
 		launcher_log("You do not have all requirements installed, please see the readme.")
+		return
+
+	import bot_main
 
 	# The main loop
 	while True:

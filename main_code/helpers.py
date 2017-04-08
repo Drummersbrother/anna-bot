@@ -93,6 +93,8 @@ def log_text(text, level):
         logger.log(level, text)
     except smtplib.SMTPException as e:
         print("Got error when trying to send email notification, error message: {0}".format(str(e)))
+    except Exception as e:
+        print("Got error when trying to log, error message {0}.".format(str(e)))
 
 def log_debug(text):
     log_text(text, 10)
@@ -121,8 +123,8 @@ def log_ob(dis_object) -> str:
 
 async def remove_roles(client: discord.Client, member: discord.Member, roles: list):
     """This function is used to remove all roles from a list from a user until the user does not have any of those roles, or the max retries have been attempted.
-    This raises Forbidden if the client does not have permissions to remove roles from the target user.
-    May also raise HTTPException if the network operations failed."""
+	This raises Forbidden if the client does not have permissions to remove roles from the target user.
+	May also raise HTTPException if the network operations failed."""
 
     # We basically work with the assumption that local membership operations are a lot faster than discord network operations
 
@@ -202,7 +204,7 @@ def remove_discord_formatting(*strings):
 
 def get_role_from_mention(member: discord.Member, string: str):
     """This method returns a role from the member's server based on the role mention in string.
-    Returns None if there isn't a matching role on the member's server."""
+	Returns None if there isn't a matching role on the member's server."""
 
     string = string.strip()
     match = role_id_regex.search(string)

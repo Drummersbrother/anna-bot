@@ -14,6 +14,7 @@ import main_code.command_decorator
 import main_code.commands.admin.broadcast
 import main_code.commands.admin.change_icon
 import main_code.commands.admin.list_referrals
+import main_code.commands.regular.game_search
 import main_code.commands.regular.gen_bot_invite
 import main_code.commands.regular.invite_link
 import main_code.commands.regular.list_ids
@@ -578,7 +579,7 @@ async def join_referral_asker(member: discord.Member):
 @client.event
 async def on_error(event, *args, **kwargs):
 	"""This event is called when an error is raised by the client,
-    and we override the default behaviour to be able to log and catch errors."""
+	and we override the default behaviour to be able to log and catch errors."""
 
 	# We retrieve the exception we're handling
 	e_type, e, e_traceback = sys.exc_info()
@@ -639,7 +640,7 @@ async def referral_reward_handler(member: discord.Member, num_refs: int):
 @main_code.command_decorator.command("help", "Do I really need to explain this...")
 async def cmd_help(message: discord.Message, passed_client: discord.Client, passed_config: dict):
 	"""This method is called to handle someone needing information about the commands they can use anna for.
-    Because of code simplicity this is one of the command functions that needs to stay in the __init__py file."""
+	Because of code simplicity this is one of the command functions that needs to stay in the __init__py file."""
 
 	# We need to create the helptexts dynamically and on each use of this command as it depends on the bot user mention which needs the client to be logged in
 
@@ -732,7 +733,7 @@ async def cmd_help(message: discord.Message, passed_client: discord.Client, pass
 @main_code.command_decorator.command("reload config", "Reloads the config file that anna-bot uses.", admin=True)
 async def cmd_admin_reload_config(message: discord.Message, passed_client: discord.Client, passed_config: dict):
 	"""This method is used to handle an admin user wanting us to reload the config file.
-    Because of code simplicity this is one of the command functions that needs to stay in the __init__py file."""
+	Because of code simplicity this is one of the command functions that needs to stay in the __init__py file."""
 
 	# Telling the issuing user that we're reloading the config
 	# Checking if we're in a private channel or if we're in a regular channel so we can format our message properly
@@ -785,7 +786,7 @@ async def cmd_admin_reload_config(message: discord.Message, passed_client: disco
 
 def set_special_param(index: int, value):
 	"""This function handles resolving a special param index into being able to set that variable (it can be immutable) to the inputted value.
-    We need this function since python doesn't have a concept of references."""
+	We need this function since python doesn't have a concept of references."""
 
 	global ignored_command_message_ids
 	global config
@@ -800,7 +801,7 @@ def set_special_param(index: int, value):
 
 async def webserver_post_last_online_list(server_address: str, server_port: int, interval: int):
 	"""This method is called periodically and handler posting data about last online times for users
-    on a discord server to an anna-falcon-server instance."""
+	on a discord server to an anna-falcon-server instance."""
 
 	async def do_async_list_post(passed_session: aiohttp.ClientSession):
 		try:

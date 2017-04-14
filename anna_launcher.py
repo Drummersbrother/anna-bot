@@ -20,6 +20,23 @@ if _platform == "win32":
 else:
 	WINDOWS = False
 
+def ratelimit_decorator(maxPerSecond):
+	"""Shamelessly taken from http://blog.gregburek.com/2011/12/05/Rate-limiting-with-decorators/"""
+	minInterval = 1.0 / float(maxPerSecond)
+	def decorate(func):
+		lastTimeCalled = [-minInterval]
+		def rateLimitedFunction(*args,**kargs):
+			elapsed = time.clock() - lastTimeCalled[0]
+			leftToWait = minInterval - elapsed
+			if leftToWait>0:
+				print("Ratelimiting by waiting for {1} seconds to ensure more than {0} seconds between each launch.".format(1 / maxPerSecond, leftToWait))
+				time.sleep(leftToWait)
+			ret = func(*args,**kargs)
+			lastTimeCalled[0] = time.clock()
+			return ret
+		return rateLimitedFunction
+	return decorate
+
 
 def parse_cli_arguments():
 	parser = argparse.ArgumentParser(description="The anna-bot launcher")
@@ -51,6 +68,9 @@ def start_anna_bot(auto_restart: bool):
 	if not verify_requirements():
 		launcher_log("You do not have all requirements installed, please see the readme.")
 		return
+	@ratelimit_decorator(1 / 60)
+	def _start_anna(functon, *args, **kwargs):
+		functon()
 
 	import bot_main
 
@@ -62,7 +82,7 @@ def start_anna_bot(auto_restart: bool):
 
 		try:
 			launcher_log("Starting anna-bot file.")
-			bot_main.start_anna()
+			_start_anna(bot_main.start_anna)
 		except Exception as e:
 			# We only catch error that are supposed to be catchable, otherwise we would've used BaseException
 			e_type, e, e_traceback = sys.exc_info()

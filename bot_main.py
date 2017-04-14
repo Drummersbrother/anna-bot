@@ -403,6 +403,12 @@ async def on_member_update(before: discord.Member, after: discord.Member):
 			del last_online_time_dict["servers"][info_dict_servers_index]
 
 
+@client.event
+async def on_ready():
+	"""Outputting info about who we're logged in as."""
+	helpers.log_info("Anna-bot has now logged in as: {0} with id {1}".format(client.user.name, client.user.id))
+
+
 async def join_welcome_message(member: discord.Member):
 	"""This function is called when a user joins a server, and welcomes them if the server has enabled the welcome message feature."""
 
@@ -973,10 +979,12 @@ def start_anna():
 	except:
 		# How did we exit?
 		helpers.log_warning("Did not get user interrupt, but still got an error, re-raising...")
-		raise
+		# Our code for the bot having exited because of an error
+		exit_code = 11
 	else:
 		# No error but we exited
 		helpers.log_info("Client exited, but we didn't get an error, probably CTRL+C or command exit...")
+		exit_code = 0
 
 	# Calculating and formatting how long the bot was online so we can log it, this is on multiple statements for clarity
 	end_time = time.time()
@@ -987,3 +995,7 @@ def start_anna():
 	helpers.log_info(
 		"Anna-bot has now exited (you'll notice if we got any errors), we have been up for {0}.".format(
 			formatted_uptime))
+			
+# We want to allow launching from the command line, but we don't really endorse doing it manually
+if __name__ == "__main__":
+	start_anna()

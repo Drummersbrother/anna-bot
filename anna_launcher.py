@@ -5,6 +5,7 @@ import os
 import sys
 import time
 import traceback
+import subprocess
 from importlib import reload
 from importlib.util import find_spec
 from sys import platform as _platform
@@ -21,18 +22,19 @@ else:
 	WINDOWS = False
 
 def ratelimit_decorator(maxPerSecond):
-	"""Shamelessly taken from http://blog.gregburek.com/2011/12/05/Rate-limiting-with-decorators/"""
+	"""Shamelessly taken from http://blog.gregburek.com/2011/12/05/Rate-limiting-with-decorators/. 
+	It is however, improved to actually work in my usecase."""
 	minInterval = 1.0 / float(maxPerSecond)
 	def decorate(func):
-		lastTimeCalled = [-minInterval]
-		def rateLimitedFunction(*args,**kargs):
-			elapsed = time.clock() - lastTimeCalled[0]
+		lastTimeCalled = [time.time() - minInterval]
+		def rateLimitedFunction(*args, **kWargs):
+			elapsed = time.time() - lastTimeCalled[0]
 			leftToWait = minInterval - elapsed
-			if leftToWait>0:
-				print("Ratelimiting by waiting for {1} seconds to ensure more than {0} seconds between each launch.".format(1 / maxPerSecond, leftToWait))
+			if leftToWait > 0:
+				launcher_log("Ratelimiting by waiting for {1} seconds to ensure more than {0} seconds between each launch.".format(round(1 / maxPerSecond, 2), round(leftToWait, 2)))
 				time.sleep(leftToWait)
-			ret = func(*args,**kargs)
-			lastTimeCalled[0] = time.clock()
+			lastTimeCalled[0] = time.time()
+			ret = func(*args, **kWargs)
 			return ret
 		return rateLimitedFunction
 	return decorate
@@ -61,69 +63,65 @@ def verify_requirements():
 	return True
 
 
-def start_anna_bot(auto_restart: bool):
-	"""We start anna-bot by importing and launching bot_main.start_bot."""
-
-	# We verify that all required modules
+def start_anna_bot_process(auto_restart: bool):
+	# We verify that all required modules are installed
 	if not verify_requirements():
 		launcher_log("You do not have all requirements installed, please see the readme.")
 		return
 	@ratelimit_decorator(1 / 60)
 	def _start_anna(functon, *args, **kwargs):
-		functon()
-
-	import bot_main
-
+		return functon(*args, **kwargs)
+		
+	# We define some things
+	interpreter = sys.executable
+	start_cmd = (interpreter, "bot_main.py")
+	
+	# This shouldn't happen unless we're running in some kind of "safe" evalutaing function (practically impossible)
+	if interpreter is None:
+		launcher_log("Could not find interpreter, exiting.")
+		return
+	
 	# The main loop
 	while True:
-		# We don't want to DOS our host machine
-		# During this sleep the user of anna-bot can send a CTRL+C and it won't be caught in the try-except statement
-		time.sleep(0.5)
-
+		# We log and launch anna
+		launcher_log("Launching anna-bot file...")
+		print("-" * 25 + "Anna-Bot" + "-" * 25)
 		try:
-			launcher_log("Starting anna-bot file.")
-			_start_anna(bot_main.start_anna)
-		except Exception as e:
-			# We only catch error that are supposed to be catchable, otherwise we would've used BaseException
-			e_type, e, e_traceback = sys.exc_info()
-			launcher_log("Anna-bot exited with exception. Traceback: \n{0}".format(
-				str("".join(traceback.format_exception(e_type, e, e_traceback)))))
-
-			# We check if we should restart
+			# We redirect stderr to the log file
+			with open("discord.log", encoding="utf-8", mode="a") as log_file:
+				exited_process = _start_anna(subprocess.run, start_cmd, universal_newlines=True, stdin=subprocess.PIPE, stderr=log_file)
+		except KeyboardInterrupt:
+			print()
+			launcher_log("Exiting because of CTRL+C.")
+			break
+		except:
+			launcher_log("Exiting since launching anna-bot gave a python exception, here's the traceback:\n{0}".format(str("".join(traceback.format_exception(*sys.exc_info())))))
+			break
+		
+		print("-" * 58)
+		launcher_log("Anna-bot has exited with code {0}.".format(exited_process.returncode))
+		
+		# We analyze how anna was exited, and we relaunch if we're supposed to
+		if exited_process.returncode == 0:
+			# Everything is fine
 			if auto_restart:
 				launcher_log("Restarting anna-bot since you used the --restart flag.")
 				continue
-
-			launcher_log("Exiting the launcher since anna-bot exited and you didn't use the --restart flag.")
+			else: 
+				launcher_log("Exiting since you didn't use the --restart flag")
+				break
+		elif exited_process.returncode < 0:
+			# The process was exited by a POSIX signal, so we don't restart it, no matter what
+			launcher_log("Exiting since anna-bot exited by POSIX signal, with code {0}".format(exited_process.returncode))
 			break
-		except BaseException:
-			# We got an exception that isn't supposed to be catched, so we break
-			launcher_log("Anna-bot exited with an un-handlable exception. Exiting launcher.")
-			break
-
-		# We check if we should continue running anna-bot
-		if not auto_restart:
-			launcher_log("Stopping anna-bot since you didn't use the --restart flag.")
-			break
-
-		# Giving the user info about why the bot is relaunching
-		launcher_log("Restarting anna-bot since you used the --restart flag.")
-		launcher_log("Updating event loop...")
-
-		# We create and use a new event loop for the next iteration of anna-bot
-		asyncio.get_event_loop().close()
-		asyncio.set_event_loop(asyncio.new_event_loop())
-
-		# We replace the old event loop with a new one, that's the only way to "reopen" loops I was able to find
-		bot_main.helpers.actual_client.loop = asyncio.get_event_loop()
-
-		# We need to refresh the client session to not get session closed errors
-		bot_main.helpers.actual_client = discord.Client(cache_auth=False)
-
-		# We import the anna-bot file (actually we reload it, as we are running a new instance of anna)
-		reload(bot_main)
-
-		launcher_log("Done updating event loop.")
+		else:
+			# Anna-bot exited with an error code, but it wasn't by a POSIX signal, so we relaunch
+			if auto_restart:
+				launcher_log("Restarting anna-bot (even though we got an error exit code) since you used the --restart flag.")
+				continue
+			else: 
+				launcher_log("Exiting since you didn't use the --restart flag")
+				break
 
 
 def launcher_log(*args):
@@ -144,7 +142,7 @@ if __name__ == '__main__':
 			"Anna-bot launcher initiated with flags: " + ", ".join([pair for pair in vars(args) if vars(args)[pair]]))
 		launcher_log("Starting anna-bot...")
 		try:
-			start_anna_bot(auto_restart=args.auto_restart)
+			start_anna_bot_process(auto_restart=args.auto_restart)
 		except BaseException:
 			e_type, e, e_traceback = sys.exc_info()
 			launcher_log("Got exception from anna-bot, will exit. Here is the traceback: \n{0}".format(

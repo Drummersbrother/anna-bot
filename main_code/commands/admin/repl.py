@@ -23,11 +23,10 @@ The MIT License (MIT)
    DEALINGS IN THE SOFTWARE.
 """
 
-import asyncio
 import traceback
 import discord
-import inspect
 import textwrap
+import sys
 from contextlib import redirect_stdout
 import io
 
@@ -107,7 +106,10 @@ async def cmd_admin_eval(message: discord.Message, client: discord.Client, confi
 			ret = await func()
 	except Exception as e:
 		value = stdout.getvalue()
-		await client.send_message(message.channel, '```py\n{}{}\n```'.format(value, traceback.format_exc()))
+		traceback_list = traceback.format_exception(*sys.exc_info())
+		# We don't want expose the filepath of the running bot in all exception reporting
+		del traceback_list[1]
+		await client.send_message(message.channel, '```py\n{}{}\n```'.format(value, "".join(traceback_list)))
 	else:
 		value = stdout.getvalue()
 		try:
@@ -117,9 +119,9 @@ async def cmd_admin_eval(message: discord.Message, client: discord.Client, confi
 	
 		if ret is None:
 			if value:
-				await helpers.send_long(client, '```py\n{0}\n```'.format(value), message.channel)
+				await helpers.send_long(client, *helpers.escape_code_formatting(value), message.channel, prepend="```py\n", append="\n```")
 		else:
 			last_result = ret
-			await helpers.send_long(client, '```py\n{0}{1}\n```'.format(value, ret), message.channel)
+			await helpers.send_long(client, "{0}{1}".format(*helpers.escape_code_formatting(value, ret)), message.channel, prepend="```py\n", append="\n```")
 			
 		await client.send_message(message.channel, message.author.mention + ", I'm done running it now!")

@@ -202,6 +202,12 @@ def remove_discord_formatting(*strings):
     return [x.replace("*", "").replace("_", "").replace("~", "") for x in strings]
 
 
+def escape_code_formatting(*strings):
+	"""Replaces backticks (from for example code blocks) with escaped backticks 
+	(placing zero width joiners between them so they don't register as proper formatting)."""
+	return [s.replace("`", "`\u2060") for s in strings]
+
+
 def get_role_from_mention(member: discord.Member, string: str):
     """This method returns a role from the member's server based on the role mention in string.
 	Returns None if there isn't a matching role on the member's server."""
@@ -223,14 +229,23 @@ def is_member_anna_admin(member: discord.Member, passed_config: dict):
     return int(member.id) in passed_config["somewhat_weird_shit"]["admin_user_ids"]
 
 
-async def send_long(client: discord.Client, message: str, channel: discord.Channel):
-    """This method is used to send long messages (longer than 2000 chars) without triggering rate-limiting"""
+async def send_long(client: discord.Client, message: str, channel: discord.Channel, prepend: str="", append: str=""):
+    """This method is used to send long messages (longer than 2000 chars) without triggering rate-limiting. 
+    Prepend is prepended to all messages, not to the whole message input.
+    Append is appended to all messages, not to the whole message input."""
 
     # How long we wait between each message
     cooldown_time = 0.5
 
+    # We don't let append and prepend increase the length of the message
+    msg_part_length = 1999 - (len(prepend) + len(append))
+
+    # We don't want some weird errors
+    if msg_part_length <= 0:
+        raise ValueError()
+
     # We split the input message into 1999 char chunks
-    message_parts = [message[i:i + 1999] for i in range(0, len(message), 1999)]
+    message_parts = [(prepend + message[i:i + msg_part_length] + append) for i in range(0, len(message), msg_part_length)]
 
     # We send the message in multiple messages to bypass the 2000 char limit, and we pause between each message to not get rate-limited
     for split_message in message_parts:

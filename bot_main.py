@@ -996,6 +996,9 @@ def start_anna():
 		"Anna-bot has now exited (you'll notice if we got any errors), we have been up for {0}.".format(
 			formatted_uptime))
 			
+	# We exit with the proper code
+	exit(exit_code)
+			
 # We want to allow launching from the command line, but we don't really endorse doing it manually
 if __name__ == "__main__":
 	start_anna()

@@ -656,18 +656,21 @@ async def cmd_help(message: discord.Message, passed_client: discord.Client, pass
 
 	# Generating the combined and formatted helptext of all the public commands (we do this in <2000 char chunks, as 2000 chars is the max length of a discord message)
 	public_commands_helptext = [""]
+	
+	# The separator between help entries, it uses discord formatting to look nice
+	help_separator = "__" + (" " * 98) + "__"
 
 	# Looping through all the public commands to add their helptexts to the correct chunks
 	for helpcommand in public_commands:
 
 		# We check if the last chunk is too will become too large or not
-		if len(public_commands_helptext[-1] + "\n-------------------------\n\t" + "**" + helpcommand[
-			"command"] + "**\n" + helpcommand["helptext"] + "\n-------------------------") > 2000:
+		if len(public_commands_helptext[-1] + "\n" + help_separator + "\n\t" + "**" + helpcommand[
+			"command"] + "**\n" + helpcommand["helptext"] + "\n" + help_separator) > 2000:
 			# We add another string to he list of messages we want to send
 			public_commands_helptext.append("")
 
-		public_commands_helptext[-1] += "\n-------------------------\n\t" + "**" + helpcommand[
-			"command"] + "**\n" + helpcommand["helptext"] + "\n-------------------------"
+		public_commands_helptext[-1] += "\n" + help_separator + "\n\t" + "**" + helpcommand[
+			"command"] + "**\n" + helpcommand["helptext"]
 
 	# Checking if the issuer is an admin user, so we know if we should show them the admin commands
 	if int(message.author.id) in passed_config["somewhat_weird_shit"]["admin_user_ids"]:
@@ -678,13 +681,13 @@ async def cmd_help(message: discord.Message, passed_client: discord.Client, pass
 		for helpcommand in admin_commands:
 
 			# We check if the last chunk is too will become too large or not
-			if len(admin_commands_helptext[-1] + "\n-------------------------\n\t" + "*admin* **" + helpcommand[
-				"command"] + "**\n" + helpcommand["helptext"] + "\n-------------------------") > 2000:
+			if len(admin_commands_helptext[-1] + "\n" + help_separator + "\n\t" + "*admin* **" + helpcommand[
+				"command"] + "**\n" + helpcommand["helptext"] + "\n" + help_separator) > 2000:
 				# We add another string to he list of messages we want to send
 				admin_commands_helptext.append("")
 
-			admin_commands_helptext[-1] += "\n-------------------------\n\t" + "*admin* **" + helpcommand[
-				"command"] + "**\n" + helpcommand["helptext"] + "\n-------------------------"
+			admin_commands_helptext[-1] += "\n" + help_separator + "\n\t" + "*admin* **" + helpcommand[
+				"command"] + "**\n" + helpcommand["helptext"]
 
 	# How many seconds we should wait between each message
 	cooldown_time = 0.5
@@ -710,7 +713,7 @@ async def cmd_help(message: discord.Message, passed_client: discord.Client, pass
 			await passed_client.send_message(message.author, helptext)
 
 		# Informing the user that they're an admin
-		await passed_client.send_message(message.author, "\nSince you're an anna-bot admin, you also have access to:")
+		await passed_client.send_message(message.author, help_separator + "\nSince you're an anna-bot admin, you also have access to:")
 
 		for helptext in admin_commands_helptext:
 			# We wait for a bit to not get rate-limited
@@ -734,7 +737,7 @@ async def cmd_help(message: discord.Message, passed_client: discord.Client, pass
 
 	# Sending a finishing message (on how to use the commands in a regular channel)
 	await passed_client.send_message(message.author,
-									 "To use commands in a regular server channel, just do \"" + client_mention + " COMMAND\"")
+									 help_separator + "\nTo use commands in a regular server channel, just do \"" + client_mention + " **COMMAND**\"")
 
 
 @main_code.command_decorator.command("reload config", "Reloads the config file that anna-bot uses.", admin=True)

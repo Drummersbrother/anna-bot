@@ -6,12 +6,15 @@ from ... import helpers
 
 """This file handles all searches for people in different games"""
 
-@command_decorator.command("game search", "Searches different games for the name given and returns matching accounts. Currently supports Overwatch.")
+#@command_decorator.command("game search", "Searches different games for the name given and returns matching accounts. Currently supports Overwatch.")
 async def game_searchall_player(message: discord.Message, client: discord.Client, config: dict):
 	"""Searches all supported games for a player."""
 
 	# We parse the name that we should search for
-	search_name = helpers.remove_anna_mention(client, message.content.strip())[len("game search "):].strip()
+	if message.channel.is_private:
+		search_name = message.content.strip()[len("game search "):].strip()
+	else:
+		search_name = helpers.remove_anna_mention(client, message.content.strip())[len("game search "):].strip()
 
 	# We check if the name is more than 4 chars or more
 	if not 100 > len(search_name) > 3:
@@ -73,7 +76,7 @@ def overwatch_player_search(battletag: str):
 		battletag = battletag[:-5] + "-" + battletag[-4:]
 
 	ow_client = OverwatchAPI(
-		1337)  # We pass an arbitrary key, it's not used yet but it's required by the funciton signature
+		1337)  # We pass an arbitrary key, it's not used yet but it's required by the function signature
 
 	# Regions we search on, taken from https://github.com/anthok/overwatch-api/blob/master/overwatch_api/overwatch_api.py
 	search_regions = ["us", "eu", "kr", "cn", "jp", "global"]
@@ -89,7 +92,6 @@ def overwatch_player_search(battletag: str):
 
 	for region in search_regions:
 		for platform in search_platforms:
-			print(region, platform)
 			# We search for the platform-region pair
 			try:
 				# The result from the OW API

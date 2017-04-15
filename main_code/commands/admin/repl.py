@@ -58,7 +58,7 @@ def get_syntax_error(e):
 	\t__author__ -> The author of the issuing message (you). \n\
 	\t__server__ -> The server in which the eval was issued. \n\
 	\t__message__ -> The message which issued the eval. \n\
-	\t__client__ -> The result of the last eval, if no eval has been done yet, this is None.", admin=True)
+	\t__last_result__ -> The result of the last eval, if no eval has been done yet, this is None.", admin=True)
 async def cmd_admin_eval(message: discord.Message, client: discord.Client, config: dict):
 	global last_result
 	
@@ -91,7 +91,6 @@ async def cmd_admin_eval(message: discord.Message, client: discord.Client, confi
 	# We cleanup the message content so we only have code.
 	# Most of the rest of this function is magic by Rapptz
 	body = cleanup_code(uncleaned_code)
-	stdout = io.StringIO()
 
 	to_compile = "async def func():\n{0}".format(textwrap.indent(body, '  '))
 
@@ -102,26 +101,24 @@ async def cmd_admin_eval(message: discord.Message, client: discord.Client, confi
 	
 	func = env['func']
 	try:
-		with redirect_stdout(stdout):
+		# We don't want to spam the logs, but we don't want any output from the stdout
+		with redirect_stdout(io.StringIO()):
 			ret = await func()
 	except Exception as e:
-		value = stdout.getvalue()
 		traceback_list = traceback.format_exception(*sys.exc_info())
 		# We don't want expose the filepath of the running bot in all exception reporting
 		del traceback_list[1]
-		await client.send_message(message.channel, '```py\n{}{}\n```'.format(value, "".join(traceback_list)))
+		await client.send_message(message.channel, '```py\n{}\n```'.format("".join(traceback_list)))
 	else:
-		value = stdout.getvalue()
 		try:
 			await client.add_reaction(message, chr(128076))
 		except:
 			pass
 	
 		if ret is None:
-			if value:
-				await helpers.send_long(client, *helpers.escape_code_formatting(value), message.channel, prepend="```py\n", append="\n```")
+		    await client.send_message(message.channel, message.author.mention + ", code didn't return anything or returned `None`.")
 		else:
 			last_result = ret
-			await helpers.send_long(client, "{0}{1}".format(*helpers.escape_code_formatting(value, ret)), message.channel, prepend="```py\n", append="\n```")
-			
+			await helpers.send_long(client, "{0}".format(*helpers.escape_code_formatting(ret)), message.channel, prepend="```\n", append="\n```")
+	finally:	
 		await client.send_message(message.channel, message.author.mention + ", I'm done running it now!")

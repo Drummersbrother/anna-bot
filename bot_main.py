@@ -596,8 +596,7 @@ async def on_error(event, *args, **kwargs):
 		# This error is handlable and a result of the discord servers being flaky af
 		helpers.log_info("Got websockets.exceptions.ConnectionClosed code 1000 from event {0}.".format(event))
 	else:
-		helpers.log_error("Ignoring exception in {}".format(event))
-		traceback.print_exc()
+		helpers.log_error("Ignoring exception in {0}, more info:\n{1}".format(event, "".join(["    " + entry for entry in traceback.format_exception(e_type, e, e_traceback)])))
 
 
 async def referral_reward_handler(member: discord.Member, num_refs: int):

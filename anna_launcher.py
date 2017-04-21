@@ -1,19 +1,15 @@
 #! /usr/bin/env python3.5
 import argparse
-import asyncio
 import os
+import subprocess
 import sys
 import time
 import traceback
-import subprocess
-from importlib import reload
 from importlib.util import find_spec
 from sys import platform as _platform
 
-import discord
-
 # The modules that have to be available for anna-bot to be able to run
-required_modules = {"discord", "youtube_dl", "pynacl", "aiohttp", "aiodns", "asyncio", "overwatch_api"}
+required_modules = {"discord", "youtube_dl", "aiohttp", "aiodns", "asyncio", "overwatch_api"}
 
 if _platform == "win32":
 	# We're running on windows

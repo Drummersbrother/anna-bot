@@ -1,7 +1,11 @@
+import asyncio
+
 import aiohttp
 import discord
 
-import owapi_overwatch_api.overwatch_api_async as owapi
+from overwatch_api import constants as ow_con
+from overwatch_api import exceptions as ow_exc
+from overwatch_api.core import AsyncOWAPI
 from ... import command_decorator
 from ... import helpers
 
@@ -81,10 +85,10 @@ async def game_searchall_player(message: discord.Message, client: discord.Client
 async def overwatch_player_search(battletag: str):
     """Searches for a name with the overwatch api and returns a {"PC", "XB", "PS"} dict, 
     with some keys being None if there wasn't a player with that name"""
-    ow_client = owapi.async_owapi_api(server_url="http://owapi.net")
+    ow_client = AsyncOWAPI(server_url="https://owapi.net")
 
     # Platforms we search on
-    search_platforms = [owapi.PC, owapi.XBOX, owapi.PLAYSTATION]
+    search_platforms = [ow_con.PC, ow_con.XBOX, ow_con.PLAYSTATION]
 
     # The results we return
     result_dict = {"PC": [], "XB": [], "PS": []}
@@ -97,16 +101,16 @@ async def overwatch_player_search(battletag: str):
             try:
                 # The result from the OW API
                 api_result = await ow_client.get_profile(battletag, session=session, platform=platform)
-            except (owapi.RatelimitError, owapi.ProfileNotFoundError):
+            except (ow_exc.RatelimitError, ow_exc.ProfileNotFoundError, asyncio.TimeoutError):
                 # Error in the response (non-200 status code or other connection error)
                 continue
 
             # We add the result (which we know is valid) to the result dict
-            if platform == owapi.PC:
+            if platform == ow_con.PC:
                 result_dict["PC"].extend(api_result.keys())
-            elif platform == owapi.XBOX:
+            elif platform == ow_con.XBOX:
                 result_dict["XB"].extend(api_result.keys())
-            elif platform == owapi.PLAYSTATION:
+            elif platform == ow_con.PLAYSTATION:
                 result_dict["PS"].extend(api_result.keys())
 
     # We turn the empty lists into Nones

@@ -1,6 +1,10 @@
+import asyncio
+
 import discord
 
-import owapi_overwatch_api.overwatch_api_async as owapi
+from overwatch_api import constants as ow_con
+from overwatch_api import exceptions as ow_exc
+from overwatch_api.core import AsyncOWAPI
 from ... import command_decorator
 from ... import helpers
 
@@ -28,7 +32,7 @@ async def game_searchall_player(message: discord.Message, client: discord.Client
         helpers.remove_discord_formatting(search_name)[0]))
 
     # We create an overwatch api client
-    ow_client = owapi.async_owapi_api()
+    ow_client = AsyncOWAPI(server_url="https://owapi.net")
 
     # The dict to store the gathered profiles
     profiles = {}
@@ -37,10 +41,10 @@ async def game_searchall_player(message: discord.Message, client: discord.Client
     helpers.log_info("Searching for {0} with the overwatch_api...".format(search_name))
 
     # We loop through the platforms and search on them
-    for platform in (owapi.PC, owapi.XBOX, owapi.PLAYSTATION):
+    for platform in (ow_con.PC, ow_con.XBOX, ow_con.PLAYSTATION):
         try:
             profiles[platform] = await ow_client.get_profile(search_name, platform=platform)
-        except (owapi.RatelimitError, owapi.ProfileNotFoundError):
+        except (ow_exc.RatelimitError, ow_exc.ProfileNotFoundError, asyncio.TimeoutError):
             pass
 
         helpers.log_info("Done searching on platform {0}.".format(platform))
@@ -53,7 +57,7 @@ async def game_searchall_player(message: discord.Message, client: discord.Client
                               "Done searching for **{0}**.".format(helpers.remove_discord_formatting(search_name)[0]))
 
     # We check that there are profiles with the matching tag
-    if profiles == {owapi.PC: {}, owapi.XBOX: {}, owapi.PLAYSTATION: {}}:
+    if profiles == {ow_con.PC: {}, ow_con.XBOX: {}, ow_con.PLAYSTATION: {}}:
         await client.send_message(message.channel,
                                   message.author.mention + ", I couldn't find any game accounts for **{0}**.".format(
                                       helpers.remove_discord_formatting(search_name)[0]))

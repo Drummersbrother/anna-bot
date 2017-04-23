@@ -108,11 +108,11 @@ async def game_searchall_player(message: discord.Message, client: discord.Client
 
         # We add the top 3 played heroes to the info
         profile_data[acc].append(("Top Competitive Heroes", "**1**. \t*{2}\n**2**. \t*{1}\n**3**. \t*{0}".format(
-            *[(list(hero_info.keys())[0][:1].upper() + list(hero_info.keys())[0][1:] + "*, *{0}* hours.".format(
+            *[(list(hero_info.keys())[0].capitalize() + "*, *{0}* hours.".format(
                 list(hero_info.values())[0])) for hero_info in c_sorted_heroes_playtime[-3:]]
         )))
         profile_data[acc].append(("Top Quickplay Heroes", "**1**. \t*{2}\n**2**. \t*{1}\n**3**. \t*{0}".format(
-            *[(list(hero_info.keys())[0][:1].upper() + list(hero_info.keys())[0][1:] + "*, *{0}* hours.".format(
+            *[(list(hero_info.keys())[0].capitalize() + "*, *{0}* hours.".format(
                 list(hero_info.values())[0])) for hero_info in
               q_sorted_heroes_playtime[-3:]]
         )))

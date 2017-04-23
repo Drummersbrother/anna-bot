@@ -475,11 +475,17 @@ async def restore_voice_persistent_state():
                                 "Could not find voice channel with id {0}, continuing...".format(info["channel_id"]))
                             break
 
+                        # We wait here to not get silently ratelimited
+                        helpers.log_info("Avoiding ratelimit.")
+                        await asyncio.sleep(5)
+
                         helpers.log_info(
                             "Trying to join channel with id {0} to restore voice state.".format(info["channel_id"]))
-
-                        # We join the channel
                         voice = await client.join_voice_channel(join_channel)
+
+                        # Waiting again to not be ratelimited
+                        helpers.log_info("Avoiding ratelimit again.")
+                        await asyncio.sleep(5)
 
                     # We replace the trailing newline at the end of the current line
                     line = line.replace("\n", "")

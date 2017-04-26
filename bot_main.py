@@ -448,8 +448,7 @@ async def restore_voice_persistent_state():
     # From this point on we assume that the loaded data is well formed
     # This might not be the case at all, but errors will be catched, reported and not fatal
     for server_id, info in loaded_voice_state.items():
-        if not info["playlist_info"]["is_playing"]:
-            continue
+
         # We try to load the same playlist file and get the link to play, and then play it
         with open(os.path.join("playlists", info["playlist_info"]["playlist_name"]), mode="r",
                   encoding="utf-8") as playlist_file:
@@ -531,6 +530,10 @@ async def restore_voice_persistent_state():
 
                     # We start the player
                     youtube_player.start()
+
+                    # If the bot wasn't playing before, we pause the player
+                    if not info["playlist_info"]["is_playing"]:
+                        youtube_player.pause()
 
                     # We create the data for the new player in the real voice state dict
                     real_voice_state[server_id] = info

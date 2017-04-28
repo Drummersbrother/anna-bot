@@ -107,7 +107,7 @@ async def on_message(message: discord.Message):
                     "We said: \"" + message.content + "\" in channel: \"" + message.channel.name + "\" on server \"" + message.server.name + "\".")
 
     # Checking if the user used a command, but we first wait to make sure that the message gets ignored if necessary
-    await asyncio.sleep(0.4)
+    await asyncio.sleep(0.2)
 
     # We need to define all the special params as globals to be able to access them without sneaky namespace stuff biting us in the ass
     global ignored_command_message_ids
@@ -453,8 +453,12 @@ async def restore_voice_persistent_state():
         # We try to load the same playlist file and get the link to play, and then play it
         with open(os.path.join("playlists", info["playlist_info"]["playlist_name"]), mode="r",
                   encoding="utf-8") as playlist_file:
+
+            # Indicates if we should continue to the next line in the playlist file
+            next_line = False
+
             for num, line in enumerate(playlist_file):
-                if num == info["playlist_info"]["current_index"]:
+                if num == info["playlist_info"]["current_index"] or next_line:
                     # We try to play the link at this line
                     # We get the voice client in the issuing server
                     # The server we are going to join
@@ -476,17 +480,47 @@ async def restore_voice_persistent_state():
                                 "Could not find voice channel with id {0}, continuing...".format(info["channel_id"]))
                             break
 
-                        # We wait here to not get silently ratelimited
-                        helpers.log_info("Avoiding ratelimit.")
-                        await asyncio.sleep(5)
+                        # We try to rejoin 6 times if necessary
+                        for rejoin_time in range(6):
+                            # We wait here to not get silently ratelimited
+                            helpers.log_info("Avoiding ratelimit.")
+                            await asyncio.sleep(5)
 
-                        helpers.log_info(
-                            "Trying to join channel with id {0} to restore voice state.".format(info["channel_id"]))
-                        voice = await client.join_voice_channel(join_channel)
+                            helpers.log_info(
+                                "Trying to join channel with id {0} to restore voice state. This is attempt {1}.".format(
+                                    info["channel_id"], rejoin_time + 1))
 
-                        # Waiting again to not be ratelimited
-                        helpers.log_info("Avoiding ratelimit again.")
-                        await asyncio.sleep(5)
+                            # We try and except for timeouts
+                            try:
+                                # We use a timeout
+                                with async_timeout.timeout(10):
+                                    voice = await client.join_voice_channel(join_channel)
+                                helpers.log_info("Joined channel.")
+
+                            except asyncio.TimeoutError:
+                                # We failed, so we log
+                                helpers.log_info("Was not able to join the voice channel within timeout.")
+                                continue
+
+                            except Exception:
+                                # We didn't get a regular error
+                                helpers.log_info(
+                                    "Got an unknown exception when trying to rejoin voice channel {0}.\nGoing to continue.\n".format(
+                                        info["channel_id"]) + "".join(traceback.format_exception(*sys.exc_info())))
+                                # We try again
+                                continue
+
+                            # Waiting again to not be ratelimited
+                            helpers.log_info("Avoiding ratelimit again.")
+                            await asyncio.sleep(5)
+                            break
+                        else:
+                            # We weren't able to join the channel, so we break and log
+                            helpers.log_info(
+                                "Was not able to join voice channel at all. Will not continue with channel {0}.".format(
+                                    info["channel_id"]))
+
+                            break
 
                     # We replace the trailing newline at the end of the current line
                     line = line.replace("\n", "")
@@ -497,7 +531,7 @@ async def restore_voice_persistent_state():
                         # I found these ytdl options here: https://github.com/rg3/youtube-dl/blob/master/youtube_dl/YoutubeDL.py https://github.com/rg3/youtube-dl/blob/e7ac722d6276198c8b88986f06a4e3c55366cb58/README.md
                         helpers.log_info(
                             "Creating YTDL player for link {0}, at index {1} in playlist, in channel {2} and playlist {3}.".format(
-                                line, info["playlist_info"]["current_index"], info["channel_id"],
+                                line, num, info["channel_id"],
                                 info["playlist_info"]["playlist_name"]))
                         youtube_player = await voice.create_ytdl_player(line,
                                                                         ytdl_options={"noplaylist": True},
@@ -506,10 +540,11 @@ async def restore_voice_persistent_state():
                         # The URL failed to load, it's probably invalid
                         helpers.log_info(
                             "Wasn't able to play link {0} at index {1} in playlist {2} because of a youtube_dl.DownloadError".format(
-                                line, info["playlist_info"]["current_index"], info["playlist_info"]["playlist_name"]))
+                                line, num, info["playlist_info"]["playlist_name"]))
 
-                        # We continue the outer loop
-                        break
+                        # We continue the loop so we can try the next index in the playlist
+                        next_line = True
+                        continue
 
                     except websockets.exceptions.ConnectionClosed:
                         # This can happen with code 1000 "No reason"...
@@ -531,6 +566,14 @@ async def restore_voice_persistent_state():
 
                     # We start the player
                     youtube_player.start()
+
+                    # We set volume and pause if necessary
+                    helpers.log_info("Setting volume of the player to {0}.".format(info["volume"][0]))
+                    youtube_player.volume = info["volume"][0]
+
+                    if info["paused"][0]:
+                        helpers.log_info("Pausing player.")
+                        youtube_player.pause()
 
                     # We create the data for the new player in the real voice state dict
                     real_voice_state[server_id] = info

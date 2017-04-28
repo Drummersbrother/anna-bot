@@ -1,7 +1,7 @@
 import asyncio
+import json
 import os.path
 import re
-import json
 import sys
 import traceback
 
@@ -35,6 +35,8 @@ def store_persistent_voice_state():
                 saved_data[key] = {k: v for k, v in val.items() if k is not "queue"}
                 # Note that we don't copy the queue and then empty it. This is because lists are mutable, and doing that would empty the list in server_queue_info_dict aswell
                 saved_data[key]["queue"] = []
+                saved_data[key]["volume"] = [player.volume for player in val["queue"]]
+                saved_data[key]["paused"] = [not player.is_playing() for player in val["queue"]]
             
             # We dump the persistent data to disk via json
             json.dump(saved_data, voice_state_file)
@@ -903,6 +905,7 @@ async def cmd_voice_playlist_list(message: discord.Message, client: discord.Clie
 
 
 @command_decorator.command("voice volume", "Change the volume of the audio that anna plays (0% -> 200%).")
+@async_use_persistent_info_dict
 async def cmd_voice_set_volume(message: discord.Message, client: discord.Client, config: dict):
     """This command is used to change the volume of the audio that anna plays."""
 
@@ -951,6 +954,7 @@ async def cmd_voice_set_volume(message: discord.Message, client: discord.Client,
 
 
 @command_decorator.command("voice toggle", "Toggle (pause or unpause) the audio anna is currently playing.")
+@async_use_persistent_info_dict
 async def cmd_voice_play_toggle(message: discord.Message, client: discord.Client, config: dict):
     """This method is used to toggle playing (pausing and unpausing) the currently playing stream player in that server (if there is one)."""
 
@@ -1088,9 +1092,21 @@ async def cmd_voice_queue_list(message: discord.Message, client: discord.Client,
         # We add the list message for this player
         # We clear the formatting of almost all the youtube info, but then we insert the player url in the proper slot since youtube urls can have underscored in them,
         # and underscores are discord formatting, so we don't want that field to get cleaned
-        fields = helpers.remove_discord_formatting(str(inx), player.title, player.uploader,
-                                                   str(player.duration),
-                                                   player.description[:300].replace("://",
+
+        # Not all video sources have descriptions, titles, duration, or uploaders
+        safe_title = player.title if player.title is not None else "N/A"
+        safe_uploader = player.uploader if player.uploader is not None else "N/A"
+        safe_duration = player.duration if player.duration is not None else "N/A"
+        safe_description = player.description
+        if safe_description is None:
+            # There is no given description
+            safe_description = "There is no provided description for this audio."
+
+        print(safe_description)
+
+        fields = helpers.remove_discord_formatting(str(inx), safe_title, safe_uploader,
+                                                   str(safe_duration),
+                                                   safe_description[:300].replace("://",
                                                                                     ":// ") + " \u2026")  # Unicode horizontal ellipsis
         fields.insert(2, ("*. **Currently playing this**" if inx == 0 else "*"))
         fields.insert(4, player.url.replace("_", "\\_"))

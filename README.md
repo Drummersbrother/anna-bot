@@ -5,22 +5,18 @@ A discord bot created for the https://mcevalonia.com minecraft server's discord 
 
 ## How to run
 ### Dependencies:
+This bot uses Python 3.5.
+
+Install the package dependencies with pip (probably useful to be done in a virtualenv):
 ```
-python3.5
-discord.py 0.16.X (https://github.com/Rapptz/discord.py)
-youtube_dl
-ffmpeg/avconv
-aiohttp
-cchardet
-aiodns
-overwatch-api
+pip3.5 install -r requirements.txt
 ```
 
 ### Running it
 1. Clone the repository
 2. Create a discord bot account ([here](https://discordapp.com/developers/applications/me))
-3. Edit `config.json`, don't forget the bot account auth tokens :)
+3. Edit `config.json`, don't forget to put in the bot account auth tokens :)
 4. Run `python3.5 anna_launcher.py` with appropriate flags (`python3.5 anna_launcher -sr` to run and restart if it exits for some reason)
-5. Exit the bot and launcher with `CTRL+C`, or exit double-tapping `CTRL+C` if you used the `-r` flag.
+5. Exit the bot and launcher with `CTRL+C`.
 
 (Btw, the bot's name comes from a swedish pop song ;) )

@@ -113,7 +113,7 @@ async def on_message(message: discord.Message):
     global ignored_command_message_ids
 
     # We define the list of special parameters that may be sent to the message functions, and also have to be returned from them (in a list)
-    special_params = [ignored_command_message_ids, config]
+    special_params = [ignored_command_message_ids, config, last_online_time_dict]
 
     # Checking if we sent the message, so we don't trigger ourselves and checking if the message should be ignored or not (such as it being a response to another command)
     # We also check if the message was sent by a bot account, as we don't allow them to use commands
@@ -984,6 +984,7 @@ def set_special_param(index: int, value):
 
     global ignored_command_message_ids
     global config
+    global last_online_time_dict
 
     # This code is really ugly because we need performance (dictionaries with lambdas with exec it very slow since it compiles every time we define it),
     # because python doesn't have any concept of references, and because python doesn't have any equivalent to switch/case
@@ -991,6 +992,8 @@ def set_special_param(index: int, value):
         ignored_command_message_ids = value
     elif index == 1:
         config = value
+    elif index == 2:
+        last_online_time_dict = value
 
 
 async def webserver_post_last_online_list(server_address: str, server_port: int, interval: int):
@@ -1082,11 +1085,11 @@ def start_anna():
                                                                                      "invite_valid_time_min"] > 0 else "infinite") + " minutes and " + str(
                                 config["invite_cmd"]["invite_max_uses"] if config["invite_cmd"][
                                                                                "invite_max_uses"] > 0 else "infinite") + " use[s].",
-                            special_params=[False, False]),
+                            special_params=[False, False, False]),
                        dict(command=config["start_server_cmd"]["start_server_command"],
                             method=main_code.commands.regular.start_server.start_server,
                             helptext="Start the minecraft server (if the channel and users have the necessary permissions to do so).",
-                            special_params=[False, False])
+                            special_params=[False, False, False])
                        ]
 
     # The commands authorised users can use, these are some pretty powerful commands, so be careful with which users you give administrative access to the bot to

@@ -81,7 +81,7 @@ def async_use_persistent_info_dict(func):
 
 
 @command_decorator.command("voice join channel", "Joins the specified voice channel if anna can access it.",
-                           cmd_special_params=[True, False])
+                           cmd_special_params=[True, False, False])
 @async_use_persistent_info_dict
 async def cmd_join_voice_channel(message: discord.Message, client: discord.Client, config: dict, ignored_command_message_ids: list):
     """This command is issued to make anna join a voice channel if she has access to it on the server where this command was issued."""
@@ -1362,7 +1362,7 @@ async def cmd_voice_queue_forward(message: discord.Message, client: discord.Clie
 
 
 @command_decorator.command("voice roles list", "Lists the roles that are allowed to issue voice commands.",
-                           cmd_special_params=[False, True])
+                           cmd_special_params=[False, True, False])
 async def cmd_voice_permissions_list_allowed(message: discord.Message, client: discord.Client, config: dict, config_nope: dict):
     """This command lists the current allowed voice roles. It takes 2 config parameters because it has special param index 1 enabled, this means it can change the global config object"""
 
@@ -1425,7 +1425,7 @@ async def cmd_voice_permissions_list_allowed(message: discord.Message, client: d
 
 @command_decorator.command("voice roles add",
                            "Adds a role to the list of roles that are allowed to issue voice commands.",
-                           cmd_special_params=[False, True])
+                           cmd_special_params=[False, True, False])
 async def cmd_voice_permissions_add_allowed(message: discord.Message, client: discord.Client, config: dict, config_nope: dict):
     """This command adds a role to the current allowed voice roles, and writes it to the config."""
 
@@ -1481,7 +1481,7 @@ async def cmd_voice_permissions_add_allowed(message: discord.Message, client: di
 
 @command_decorator.command("voice roles remove",
                            "Removes a role from the list of roles that are allowed to issue voice commands.",
-                           cmd_special_params=[False, True])
+                           cmd_special_params=[False, True, False])
 async def cmd_voice_permissions_remove_allowed(message: discord.Message, client: discord.Client, config: dict, config_nope: dict):
     """This command removes a role to the current allowed voice roles, and writes it to the config."""
 

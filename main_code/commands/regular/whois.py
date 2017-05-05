@@ -6,7 +6,7 @@ from ... import helpers
 
 @command_decorator.command("whois", "Use this to get info about a user.")
 async def whois(message: discord.Message, client: discord.Client, config: dict):
-	"""This method is called to handle someone wanting to know who/what anna-bot is."""
+	"""This method is called to handle someone wanting to know some info about a user."""
 
 	# We strip the message of the username, and then we check if it is a valid one
 	username_raw = helpers.remove_anna_mention(client, message.content.strip())[len("whois "):].strip()
@@ -18,7 +18,7 @@ async def whois(message: discord.Message, client: discord.Client, config: dict):
 	if not target_user:
 		# We tell the user that they did not specify a valid user
 		await client.send_message(message.channel,
-								  message.author.mention + ", you did not specify a valid user. Make sure to use @mentions :smiley:")
+								  message.author.mention + ", you did not specify a valid user. Make sure to use @mentions.")
 		# Log it
 		helpers.log_info(
 			"User {0} tried to use the whois command on server {1}, but did not specify a valid user.".format(

@@ -23,102 +23,108 @@ The MIT License (MIT)
    DEALINGS IN THE SOFTWARE.
 """
 
-import traceback
-import discord
-import textwrap
-import sys
-from contextlib import redirect_stdout
 import io
+import sys
+import textwrap
+import traceback
+from contextlib import redirect_stdout
 
-from ... import helpers
+import discord
+
 from ... import command_decorator
+from ... import helpers
 
 # The lastest result from eval, bot-wide (so different admins can use eachother's results)
 last_result = None
 
 def cleanup_code(content):
-	"""Automatically removes code blocks from the code."""
-	# remove ```py\n```
-	if content.startswith("```") and content.endswith("```"):
-		return "\n".join(content.split("\n")[1:])[:-3]
+    """Automatically removes code blocks from the code."""
+    # remove ```py\n```
+    if content.startswith("```") and content.endswith("```"):
+        return "\n".join(content.split("\n")[1:])[:-3]
 
-	# Remove trailing and leading `,  , or \n 
-	return content.strip('` \n')
+    # Remove trailing and leading `,  , or \n
+    return content.strip('` \n')
 
 def get_syntax_error(e):
-	if e.text is None:
-		return "```py\n{0.__class__.__name__}: {0}\n```".format(e)
-	return "```py\n{0.text}{1:>{0.offset}}\n{2}: {0}```".format(e, '^', type(e).__name__)
+    if e.text is None:
+        return "```py\n{0.__class__.__name__}: {0}\n```".format(e)
+    return "```py\n{0.text}{1:>{0.offset}}\n{2}: {0}```".format(e, '^', type(e).__name__)
 
 @command_decorator.command("eval", "Executes the specified code block (uses exec and not eval, but eval is a nicer name).\
-	Be careful with what you execute, and note that you ARE able to use async code as it is run in a coroutine.\
-	\nSome useful variables are: \n\
-	\t__client__ -> The discord client of the bot. \n\
-	\t__channel__ -> The channel in which the eval was issued. \n\
-	\t__author__ -> The author of the issuing message (you). \n\
-	\t__server__ -> The server in which the eval was issued. \n\
-	\t__message__ -> The message which issued the eval. \n\
-	\t__last_result__ -> The result of the last eval, if no eval has been done yet, this is None.", admin=True)
+    Be careful with what you execute, and note that you ARE able to use async code as it is run in a coroutine.\
+    \nSome useful variables are: \n\
+    \t__client__ -> The discord client of the bot. \n\
+    \t__channel__ -> The channel in which the eval was issued. \n\
+    \t__author__ -> The author of the issuing message (you). \n\
+    \t__server__ -> The server in which the eval was issued. \n\
+    \t__message__ -> The message which issued the eval. \n\
+    \t__last_result__ -> The result of the last eval, if no eval has been done yet, this is None.", admin=True)
 async def cmd_admin_eval(message: discord.Message, client: discord.Client, config: dict):
-	global last_result
-	
-	# The variables we give access to
-	env = {
-		"client": client,
-		"channel": message.channel,
-		"author": message.author,
-		"server": message.server,
-		"message": message,
-		"last_result": last_result
-	}
+    global last_result
 
-	# We insert the globals into the environment
-	env.update(globals())
+    # The variables we give access to
+    env = {
+        "client": client,
+        "channel": message.channel,
+        "author": message.author,
+        "server": message.server,
+        "message": message,
+        "last_result": last_result
+    }
 
-	no_mention_content = helpers.remove_anna_mention(client, message) if not message.channel.is_private else message.content
+    # We insert the globals into the environment
+    env.update(globals())
 
-	# We make sure that there's code in the message
-	if len(no_mention_content) < len("admin eval "):
-		# We didn't get any code
-		await client.send_message(message.channel, message.author.mention + ", you did not give any code to run.")
-		return
-	else:
-		# We have atleast some maybe-valid input
-		uncleaned_code = no_mention_content[11:]
-		await client.send_message(message.channel, message.author.mention + ", ok, running now...")
-		helpers.log_info("Running code from eval command issued by {0} ({1}).".format(message.author.name, message.author.id))
-		
-	# We cleanup the message content so we only have code.
-	# Most of the rest of this function is magic by Rapptz
-	body = cleanup_code(uncleaned_code)
+    no_mention_content = helpers.remove_anna_mention(client,
+                                                     message) if not message.channel.is_private else message.content
 
-	to_compile = "async def func():\n{0}".format(textwrap.indent(body, '  '))
+    # We make sure that there's code in the message
+    if len(no_mention_content) < len("admin eval "):
+        # We didn't get any code
+        await client.send_message(message.channel, message.author.mention + ", you did not give any code to run.")
+        return
+    else:
+        # We have atleast some maybe-valid input
+        uncleaned_code = no_mention_content[11:]
+        await client.send_message(message.channel, message.author.mention + ", ok, running now...")
+        helpers.log_info(
+            "Running code from eval command issued by {0} ({1}).".format(message.author.name, message.author.id))
 
-	try:
-		exec(to_compile, env)
-	except SyntaxError as e:
-		return await client.send_message(message.channel, message.author.mention + ", got SyntaxError: \n" + get_syntax_error(e))
-	
-	func = env['func']
-	try:
-		# We don't want to spam the logs, but we don't want any output from the stdout
-		with redirect_stdout(io.StringIO()):
-			ret = await func()
-	except Exception as e:
-		traceback_list = traceback.format_exception(*sys.exc_info())
-		# We don't want expose the filepath of the running bot in all exception reporting
-		del traceback_list[1]
-		await client.send_message(message.channel, '```py\n{}\n```'.format("".join(traceback_list)))
-	else:
-		try:
-			await client.add_reaction(message, chr(128076))
-		except:
-			pass
-	
-		if ret is None:
-		    await client.send_message(message.channel, message.author.mention + ", code didn't return anything or returned `None`.")
-		else:
-			last_result = ret
-			await helpers.send_long(client, "{0}".format(*helpers.escape_code_formatting(ret)), message.channel, prepend="```\n", append="\n```")
-	finally:	
-		await client.send_message(message.channel, message.author.mention + ", I'm done running it now!")
+    # We cleanup the message content so we only have code.
+    # Most of the rest of this function is magic by Rapptz
+    body = cleanup_code(uncleaned_code)
+
+    to_compile = "async def func():\n{0}".format(textwrap.indent(body, '  '))
+
+    try:
+        exec(to_compile, env)
+    except SyntaxError as e:
+        return await client.send_message(message.channel,
+                                         message.author.mention + ", got SyntaxError: \n" + get_syntax_error(e))
+
+    func = env['func']
+    try:
+        # We don't want to spam the logs, but we don't want any output from the stdout
+        with redirect_stdout(io.StringIO()):
+            ret = await func()
+    except Exception as e:
+        traceback_list = traceback.format_exception(*sys.exc_info())
+        # We don't want expose the filepath of the running bot in all exception reporting
+        del traceback_list[1]
+        await client.send_message(message.channel, '```py\n{}\n```'.format("".join(traceback_list)))
+    else:
+        try:
+            await client.add_reaction(message, chr(128076))
+        except:
+            pass
+
+        if ret is None:
+            await client.send_message(message.channel,
+                                      message.author.mention + ", code didn't return anything or returned `None`.")
+        else:
+            last_result = ret
+            await helpers.send_long(client, "{0}".format(*helpers.escape_code_formatting(ret)), message.channel,
+                                    prepend="```\n", append="\n```")
+    finally:
+        await client.send_message(message.channel, message.author.mention + ", I'm done running it now!")

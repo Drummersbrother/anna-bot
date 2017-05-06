@@ -1,7 +1,8 @@
 {
   "credentials": {
     "app_client_id": APP ID HERE,
-    "token": "BOT TOKEN HERE"
+    "token": "BOT TOKEN HERE",
+    "mashape_api_key": "MASHAPE API KEY HERE"
   },
   "webserver_config": {
     "use_webserver": false,

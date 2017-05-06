@@ -15,8 +15,9 @@ pip3.5 install -r requirements.txt
 ### Running it
 1. Clone the repository
 2. Create a discord bot account ([here](https://discordapp.com/developers/applications/me))
-3. Edit `config.json`, don't forget to put in the bot account auth tokens :)
-4. Run `python3.5 anna_launcher.py` with appropriate flags (`python3.5 anna_launcher -sr` to run and restart if it exits for some reason)
-5. Exit the bot and launcher with `CTRL+C`.
+3. Create a [Mashape](https://market.mashape.com/register) account and retrieve an api key for the default application ([instructions](http://docs.mashape.com/api-keys#changing))
+4. Edit `config.json`, don't forget to put in the bot account auth tokens and Mashape api key:)
+5. Run `python3.5 anna_launcher.py` with appropriate flags (`python3.5 anna_launcher -sr` to run and restart if it exits for some reason)
+6. Exit the bot and launcher with `CTRL+C`.
 
 (Btw, the bot's name comes from a swedish pop song ;) )

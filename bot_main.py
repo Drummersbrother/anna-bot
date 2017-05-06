@@ -180,7 +180,7 @@ async def on_message(message: discord.Message):
             if not used_command:
                 # Sending the message to the user
                 await client.send_message(message.channel,
-                                          "You seemingly just tried to use an " + client.mention + " command, but I couldn't figure out which one you wanted to use, if you want to know what commands I can do for you, please type \"" + client_mention + " help\" :smile:")
+                                          "You seemingly just tried to use an " + client_mention + " command, but I couldn't figure out which one you wanted to use, if you want to know what commands I can do for you, please type \"" + client_mention + " help\" :smile:")
             else:
                 # If the message was a command of any sort, we increment the commands received counter on anna
                 # We first load the config
@@ -264,7 +264,7 @@ async def on_message(message: discord.Message):
                 if not used_command:
                     # Sending the message to the user
                     await client.send_message(message.channel,
-                                              message.author.mention + ", you seemingly just tried to use an " + client.mention + " command, but I couldn't figure out which one you wanted to use, if you want to know what commands I can do for you, please type \"" + client_mention + " help\" :smile:")
+                                              message.author.mention + ", you seemingly just tried to use an " + client_mention + " command, but I couldn't figure out which one you wanted to use, if you want to know what commands I can do for you, please type \"" + client_mention + " help\" :smile:")
                 else:
                     # If the message was a command of any sort, we increment the commands received counter on anna
                     # We first load the config
@@ -565,6 +565,7 @@ async def restore_voice_persistent_state():
                         raise
 
                     # We start the player
+                    helpers.log_info("Starting player.")
                     youtube_player.start()
 
                     # We set volume and pause if necessary

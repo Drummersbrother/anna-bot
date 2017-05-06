@@ -124,7 +124,7 @@ async def cmd_admin_eval(message: discord.Message, client: discord.Client, confi
                                       message.author.mention + ", code didn't return anything or returned `None`.")
         else:
             last_result = ret
-            await helpers.send_long(client, "{0}".format(*helpers.escape_code_formatting(ret)), message.channel,
+            await helpers.send_long(client, "{0}".format(*helpers.escape_code_formatting(str(ret))), message.channel,
                                     prepend="```\n", append="\n```")
     finally:
         await client.send_message(message.channel, message.author.mention + ", I'm done running it now!")

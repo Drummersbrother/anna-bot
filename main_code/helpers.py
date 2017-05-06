@@ -4,6 +4,8 @@ import logging.handlers
 import re
 import smtplib
 
+import aiohttp
+import async_timeout
 import discord
 
 # Setting up logging with the built in discord.py logger
@@ -254,3 +256,33 @@ async def send_long(client: discord.Client, message: str, channel: discord.Chann
 
         # We send the message part
         await client.send_message(channel, split_message)
+
+
+async def mashape_json_api_request(passed_config: dict, *args, endpoint: str, timeout: float = 5., method: str = "get",
+                                   return_json: bool = True, **kwargs):
+    """Does a json api request to a mashape.com api. The endpoint is endpoint, the timeout is in seconds, method is the HTTP method to use, and *args and **kwargs are passed to the aiohttp call.
+    This raises asyncio.TimeoutError if the request takes more than timeout seconds. 
+    Returns data in json format if return_json is True (defaults to True).
+    This automatically uses the configured mashape key from the passed_config dict."""
+
+    # We configure the HTTP headers to send
+    headers = {
+        "X-Mashape-Key": passed_config["credentials"]["mashape_api_key"],
+        "Accept": "application/json"
+    }
+
+    # We do the request
+    try:
+        # We create an aiohttp.Client, and fetch the json from the meow api
+        with async_timeout.timeout(timeout):
+            async with aiohttp.ClientSession(loop=actual_client.loop) as session:
+                async with getattr(session, method)(endpoint, *args, headers=headers, **kwargs) as response:
+                    if return_json:
+                        result = json.loads(await response.text())
+                    else:
+                        result = await response.text()
+                    return result
+    except (asyncio.TimeoutError, json.JSONDecodeError):
+        # We didn't succeed with loading the url
+        log_info("Wasn't able to load mashape url {0}.".format(endpoint))
+        raise

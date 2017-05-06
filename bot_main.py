@@ -30,6 +30,7 @@ import main_code.commands.regular.voice_commands_playlist
 import main_code.commands.regular.warning_commands
 import main_code.commands.regular.who_r_u
 import main_code.commands.regular.whois
+import main_code.commands.regular.yoda_speak
 from main_code import helpers
 
 # Setting up the client object

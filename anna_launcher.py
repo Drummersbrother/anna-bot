@@ -79,7 +79,7 @@ def start_anna_bot_process(auto_restart: bool):
     interpreter = sys.executable
     start_cmd = (interpreter, "bot_main.py")
 
-    # This shouldn't happen unless we're running in some kind of "safe" evalutaing function (practically impossible)
+    # This shouldn't happen unless we're running in some kind of "safe" evaluating function (practically impossible)
     if interpreter is None:
         launcher_log("Could not find interpreter, exiting.")
         return

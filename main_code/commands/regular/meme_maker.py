@@ -35,7 +35,7 @@ async def cmd_meme_list(message: discord.Message, client: discord.Client, config
         return
 
     # We create a bytesio from the image list and send it as a file
-    meme_list_io = BytesIO(bytearray("\n,".join(meme_list), encoding="utf-8"))
+    meme_list_io = BytesIO(bytearray(",\n".join(meme_list), encoding="utf-8"))
 
     # We send the file
     helpers.log_info("Sending the meme image list...")

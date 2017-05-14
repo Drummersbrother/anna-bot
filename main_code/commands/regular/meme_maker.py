@@ -25,7 +25,7 @@ async def cmd_meme_list(message: discord.Message, client: discord.Client, config
     # We get the list
     try:
         helpers.log_info("Trying to load the meme image list from the meme generator mashape api...")
-        meme_list = await get_meme_list()
+        meme_list = await get_meme_list(config)
         helpers.log_info("Successfully loaded the meme image list.")
 
     except (asyncio.TimeoutError, json.JSONDecodeError) as e:

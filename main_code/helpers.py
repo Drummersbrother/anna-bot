@@ -231,6 +231,28 @@ def is_member_anna_admin(member: discord.Member, passed_config: dict):
     return int(member.id) in passed_config["somewhat_weird_shit"]["admin_user_ids"]
 
 
+def parse_quote_parameters(raw: str, number_params: int):
+    """Parses and returns a list of parsed parameters that are enclosed in quotes in a string.
+    Raises Assertionerror if the string isn't in the required format."""
+
+    # We strip the raw string
+    raw = raw.strip()
+
+    # Assert it starts with "
+    assert raw[0] == "\""
+    # Assert that there are the proper number of "s (double the number of parameters)
+    assert sum([1 for c in raw if c == "\""]) == number_params * 2
+
+    parameters = []
+    for i in range(number_params):
+        # Remove the first ", and put the argument into query_parameters, and then remove the next "
+        raw = raw[1:]
+        parameters.append(raw[:raw.find("\"")])
+        raw = raw[raw.find("\"") + 1:]
+        raw = raw[raw.find("\""):]
+
+    return parameters
+
 async def send_long(client: discord.Client, message: str, channel: discord.Channel, prepend: str="", append: str=""):
     """This method is used to send long messages (longer than 2000 chars) without triggering rate-limiting. 
     Prepend is prepended to all messages, not to the whole message input.
@@ -259,9 +281,12 @@ async def send_long(client: discord.Client, message: str, channel: discord.Chann
 
 
 async def mashape_json_api_request(passed_config: dict, *args, endpoint: str, timeout: float = 5., method: str = "get",
-                                   return_json: bool = True, **kwargs):
+                                   return_json: bool = True, return_raw_response: bool = False,
+                                   return_data_aswell: bool = False, **kwargs) -> aiohttp.ClientResponse:
     """Does a json api request to a mashape.com api. The endpoint is endpoint, the timeout is in seconds, method is the HTTP method to use, and *args and **kwargs are passed to the aiohttp call.
     This raises asyncio.TimeoutError if the request takes more than timeout seconds. 
+    Returns the raw response if return_raw_response is True (defaults to False).
+    If return_raw_response is True and return_data_aswell is True, it will return: await response.read(), response
     Returns data in json format if return_json is True (defaults to True).
     This automatically uses the configured mashape key from the passed_config dict."""
 
@@ -277,6 +302,9 @@ async def mashape_json_api_request(passed_config: dict, *args, endpoint: str, ti
         with async_timeout.timeout(timeout):
             async with aiohttp.ClientSession(loop=actual_client.loop) as session:
                 async with getattr(session, method)(endpoint, *args, headers=headers, **kwargs) as response:
+                    if return_raw_response:
+                        if return_data_aswell:
+                            return await response.read(), response
                     if return_json:
                         result = json.loads(await response.text())
                     else:

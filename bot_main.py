@@ -23,6 +23,7 @@ import main_code.commands.regular.game_search
 import main_code.commands.regular.gen_bot_invite
 import main_code.commands.regular.invite_link
 import main_code.commands.regular.list_ids
+import main_code.commands.regular.meme_maker
 import main_code.commands.regular.report_stats
 import main_code.commands.regular.start_server
 import main_code.commands.regular.vanity_role_commands

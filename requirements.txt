@@ -17,3 +17,4 @@ six==1.10.0
 websockets==3.3
 yarl==0.10.0
 youtube-dl==2017.4.28
+python-Levenshtein==0.12.0

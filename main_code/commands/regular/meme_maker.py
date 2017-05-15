@@ -172,3 +172,10 @@ async def cmd_make_meme(message: discord.Message, client: discord.Client, config
     await client.send_file(message.channel, fp=meme_data_io, filename="meme." + meme_resp.content_type[len("image/"):],
                            content="{0}Here you go!\nThis is the {1} meme.".format(
                                "" if message.channel.is_private else message.author.mention + ", ", meme))
+
+
+@command_decorator.command("meme upload", "Uploads a new image to make available for the meme commands.")
+async def cmd_upload_meme(message: discord.Message, client: discord.Client, config: dict):
+    """Uploads a meme to the meme api. We only upload png, jpg, jpeg and gif. We also limit to 10MB."""
+    
+    

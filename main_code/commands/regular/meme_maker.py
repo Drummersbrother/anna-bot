@@ -184,7 +184,9 @@ async def cmd_upload_meme(message: discord.Message, client: discord.Client, conf
     
     # We check if the user attached a file to the issuing message
     if 10 > len(message.attachments) == 0 and (not max(map(lambda x: len(x.filename)), message.attachments) < 100):
-        await client.send_message(message.channel, "{0}You need to provide an attachment to upload a meme. Only image formats are supported. Filesize is limited to 10MB.".format("" if message.channel.is_private else message.author.mention + ", "))
+        await client.send_message(message.channel,
+                                  "{0}You need to provide an attachment to upload a meme. Only image formats are supported. Filesize is limited to 6MB.".format(
+                                      "" if message.channel.is_private else message.author.mention + ", "))
         
         # We're done here
         return
@@ -264,7 +266,7 @@ async def cmd_upload_meme(message: discord.Message, client: discord.Client, conf
 
             # We add the info about the uploaded attachment to the info string
             uploaded_meme_info += "Uploaded file `\"{0}\"` with width `{1}`, height `{2}` and size ~`{3}`KBs.\n\t".format(
-                attachment["filename"], attachment["width"], attachment["height"], round(attachment["size"] / 1024, 4))
+                attachment["filename"], attachment["width"], attachment["height"], round(attachment["size"] / 1024, 2))
 
         except asyncio.TimeoutError:
             # We weren't able to upload the meme

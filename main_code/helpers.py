@@ -253,8 +253,10 @@ def parse_quote_parameters(raw: str, number_params: int):
 
     return parameters
 
-async def send_long(client: discord.Client, message: str, channel: discord.Channel, prepend: str="", append: str=""):
+
+async def send_long(client: discord.Client, message, channel: discord.Channel, prepend: str = "", append: str = ""):
     """This method is used to send long messages (longer than 2000 chars) without triggering rate-limiting. 
+    message can be a string or a list of strings, it will be autodetected. If a string in a list is > 2000 chars, it will fail to send.
     Prepend is prepended to all messages, not to the whole message input.
     Append is appended to all messages, not to the whole message input."""
 
@@ -268,8 +270,14 @@ async def send_long(client: discord.Client, message: str, channel: discord.Chann
     if msg_part_length <= 0:
         raise ValueError()
 
-    # We split the input message into 1999 char chunks
-    message_parts = [(prepend + message[i:i + msg_part_length] + append) for i in range(0, len(message), msg_part_length)]
+    # We check if the message is already split into parts
+    if not isinstance(message, str):
+        # We split the input message into 1999 char chunks
+        message_parts = [(prepend + message[i:i + msg_part_length] + append) for i in
+                         range(0, len(message), msg_part_length)]
+    else:
+        message_parts = [message]
+
 
     # We send the message in multiple messages to bypass the 2000 char limit, and we pause between each message to not get rate-limited
     for split_message in message_parts:
@@ -305,6 +313,8 @@ async def mashape_json_api_request(passed_config: dict, *args, endpoint: str, ti
                     if return_raw_response:
                         if return_data_aswell:
                             return await response.read(), response
+                        else:
+                            return response
                     if return_json:
                         result = json.loads(await response.text())
                     else:

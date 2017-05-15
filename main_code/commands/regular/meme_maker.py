@@ -3,6 +3,8 @@ import json
 from io import BytesIO
 
 import Levenshtein
+import aiohttp
+import async_timeout
 import discord
 
 from ... import command_decorator
@@ -181,7 +183,7 @@ async def cmd_upload_meme(message: discord.Message, client: discord.Client, conf
     Uploads a meme to the meme api. Only image formats are supported. We also limit to 6MB."""
     
     # We check if the user attached a file to the issuing message
-    if len(message.attachments) == 0:
+    if 10 > len(message.attachments) == 0 and (not max(map(lambda x: len(x.filename)), message.attachments) < 100):
         await client.send_message(message.channel, "{0}You need to provide an attachment to upload a meme. Only image formats are supported. Filesize is limited to 10MB.".format("" if message.channel.is_private else message.author.mention + ", "))
         
         # We're done here
@@ -191,16 +193,20 @@ async def cmd_upload_meme(message: discord.Message, client: discord.Client, conf
     valid_attachments = []
     
     for attachment in message.attachments:
-        if ("width" in attachment) and ("height" in attachment) and attachment.size < 6 * (2 ** 20):
+        if ("width" in attachment) and ("height" in attachment) and attachment["size"] < 6 * (2 ** 20):
             # It's a valid attachment
             valid_attachments.append(attachment)
             
             # We log
             helpers.log_info("Got valid attachment with width {0}, height {1}, size {2} bytes, and filename {3} from {4}.".format(
-                attachment.width, attachment.width, attachment.size, attachment.filename, helpers.log_ob(message.author)))
+                attachment["width"], attachment["width"], attachment["size"], attachment["filename"],
+                helpers.log_ob(message.author)))
         else:
             # We send a message about an invalid file
-            await client.send_message(message.channel, "{0}The file with name \"{1}\" wasn't valid for uploading as a meme.".format("" if message.channel.is_private else message.author.mention + ", ", attachment.filename))
+            await client.send_message(message.channel,
+                                      "{0}The file with name \"{1}\" wasn't valid for uploading as a meme.".format(
+                                          "" if message.channel.is_private else message.author.mention + ", ",
+                                          attachment["filename"]))
             await asyncio.sleep(0.5)
             
     # We check if the user attached a file to the issuing message
@@ -211,9 +217,63 @@ async def cmd_upload_meme(message: discord.Message, client: discord.Client, conf
         
         # We're done here
         return
-    
+
+    # The string we send with info about how the meme uploading went
+    uploaded_meme_info = "{0}Here are the memes I uploaded:\n".format(
+        "" if message.channel.is_private else message.author.mention + ", ")
+
     # We loop through the valid attachments and upload them to the mashape api
     for attachment in valid_attachments:
-        pass
-        
-    
+        # We try to upload the attachment
+        try:
+
+            # We log
+            helpers.log_info("Fetching from attachment and uploading to mashape meme api, attachment from {0}.".format(
+                helpers.log_ob(message.author)))
+
+            # We fetch the attachment into a BytesIO
+            try:
+                # Timeout the fetch
+                with async_timeout.timeout(5):
+                    async with aiohttp.ClientSession(loop=helpers.actual_client.loop) as session:
+                        async with session.get(attachment["url"]) as response:
+                            meme_img_data = BytesIO(await response.read())
+            except asyncio.TimeoutError:
+                # We didn't succeed with loading the url
+                helpers.log_info("Wasn't able to load meme upload attachment url {0}.".format(attachment["url"]))
+                raise
+
+            helpers.log_info("Uploading attachment \"{1}\" from {0}...".format(helpers.log_ob(message.author),
+                                                                               attachment["filename"]))
+
+            # We upload the meme data to the mashape api
+            uploaded_response = await helpers.mashape_json_api_request(config,
+                                                                       endpoint="https://ronreiter-meme-generator.p.mashape.com/images",
+                                                                       method="post",
+                                                                       return_json=False, return_raw_response=True,
+                                                                       data={"image": meme_img_data},
+                                                                       chunked=(2 ** 10) * 16)
+
+            helpers.log_info(
+                "Uploaded attachment \"{1}\" from {0}.".format(helpers.log_ob(message.author), attachment["filename"]))
+
+            # We check for a 200 response from the api, if not, the uploading failed
+            if not uploaded_response.status == 200:
+                print(repr(uploaded_response))
+                raise asyncio.TimeoutError
+
+            # We add the info about the uploaded attachment to the info string
+            uploaded_meme_info += "Uploaded file `\"{0}\"` with width `{1}`, height `{2}` and size ~`{3}`KBs.\n\t".format(
+                attachment["filename"], attachment["width"], attachment["height"], round(attachment["size"] / 1024, 4))
+
+        except asyncio.TimeoutError:
+            # We weren't able to upload the meme
+            helpers.log_info(
+                "I wasn't able to upload the meme attachment from {0}.".format(helpers.log_ob(message.author)))
+
+            # We give some info in the upload info string
+            uploaded_meme_info += "I wasn't able to upload the meme `\"{0}\"`, is that a valid image?\n\t".format(
+                attachment["filename"])
+
+    # We send the upload info to the user
+    await helpers.send_long(client, uploaded_meme_info, message.channel)

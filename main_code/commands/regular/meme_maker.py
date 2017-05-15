@@ -174,8 +174,46 @@ async def cmd_make_meme(message: discord.Message, client: discord.Client, config
                                "" if message.channel.is_private else message.author.mention + ", ", meme))
 
 
-@command_decorator.command("meme upload", "Uploads a new image to make available for the meme commands.")
+@command_decorator.command("meme upload", "Uploads a new image to make available for the meme commands. "
+                                           "Only image formats are supported. Filesize is limited to 6MB.")
 async def cmd_upload_meme(message: discord.Message, client: discord.Client, config: dict):
-    """Uploads a meme to the meme api. We only upload png, jpg, jpeg and gif. We also limit to 10MB."""
+    """Uses the mashape api here: https://market.mashape.com/ronreiter/meme-generator
+    Uploads a meme to the meme api. Only image formats are supported. We also limit to 6MB."""
     
+    # We check if the user attached a file to the issuing message
+    if len(message.attachments) == 0:
+        await client.send_message(message.channel, "{0}You need to provide an attachment to upload a meme. Only image formats are supported. Filesize is limited to 10MB.".format("" if message.channel.is_private else message.author.mention + ", "))
+        
+        # We're done here
+        return
+        
+    # We create a list of all the valid (image or video, I think...) attachments
+    valid_attachments = []
+    
+    for attachment in message.attachments:
+        if ("width" in attachment) and ("height" in attachment) and attachment.size < 6 * (2 ** 20):
+            # It's a valid attachment
+            valid_attachments.append(attachment)
+            
+            # We log
+            helpers.log_info("Got valid attachment with width {0}, height {1}, size {2} bytes, and filename {3} from {4}.".format(
+                attachment.width, attachment.width, attachment.size, attachment.filename, helpers.log_ob(message.author)))
+        else:
+            # We send a message about an invalid file
+            await client.send_message(message.channel, "{0}The file with name \"{1}\" wasn't valid for uploading as a meme.".format("" if message.channel.is_private else message.author.mention + ", ", attachment.filename))
+            await asyncio.sleep(0.5)
+            
+    # We check if the user attached a file to the issuing message
+    if len(valid_attachments) == 0:
+        await client.send_message(message.channel, "{0}All your provided attachments were invalid. Please try again with valid ones." 
+                                                    "Only image formats are supported. Filesize is limited to 6MB."
+                                                    .format("" if message.channel.is_private else message.author.mention + ", "))
+        
+        # We're done here
+        return
+    
+    # We loop through the valid attachments and upload them to the mashape api
+    for attachment in valid_attachments:
+        pass
+        
     

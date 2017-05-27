@@ -19,6 +19,54 @@ async def get_meme_list(passed_config: dict):
                                                   return_json=True)
 
 
+async def send_meme_in_channel(meme: str, top_text: str, bottom_text: str, msg_text: str, recipient: discord.Member,
+                               passed_client: discord.Client, passed_channel: discord.Channel, passed_config: dict):
+    """Sends a meme with the specified top and bottom texts to the specified channel and recipient, with the specified message."""
+
+    # We try to fetch the meme
+    try:
+        helpers.log_info(
+            "Loading meme \"{0}\", with top text \"{1}\", and bottom text \"{2}\" from the meme generator mashape api...".format(
+                meme, top_text, bottom_text))
+
+        # We get the image with the proper texts, and send it in the chat.
+        meme_data, meme_resp = await helpers.mashape_json_api_request(passed_config,
+                                                                      endpoint="https://ronreiter-meme-generator.p.mashape.com/meme",
+                                                                      return_raw_response=True, return_data_aswell=True,
+                                                                      params={"meme": meme, "top": top_text,
+                                                                              "bottom": bottom_text})
+        helpers.log_info("Done loading meme.")
+
+    except asyncio.TimeoutError:
+        await passed_client.send_message(passed_channel,
+                                         "{0}I wasn't able to get the meme because of network timeout.".format(
+                                             "" if passed_channel.is_private else recipient.mention + ", "))
+
+        # We're done here
+        return
+
+    # We make sure the returned content type is not text/html, as that is the returned content type for an error msg
+    if meme_resp.content_type.startswith("text/html"):
+        # We failed to load the meme
+        await passed_client.send_message(passed_channel,
+                                         "{0}I wasn't able to load that meme with those parameters.".format(
+                                             "" if passed_channel.is_private else recipient.mention + ", "))
+
+        # We're done here
+        return
+
+    helpers.log_info("Sending meme to {0}.".format(helpers.log_ob(recipient)))
+
+    # We download the meme into a BytesIO
+    meme_data_io = BytesIO(meme_data)
+
+    # We send the meme data
+    await passed_client.send_file(passed_channel, fp=meme_data_io,
+                                  filename="meme." + meme_resp.content_type[len("image/"):],
+                                  content="{0}{2}\nThis is the *{1}* meme.".format(
+                                      "" if passed_channel.is_private else recipient.mention + ", ", meme, msg_text))
+
+
 @command_decorator.command("meme list", "Gives you a list of all the memes you can use.")
 async def cmd_meme_list(message: discord.Message, client: discord.Client, config: dict):
     """Uses the mashape api here: https://market.mashape.com/ronreiter/meme-generator
@@ -44,6 +92,57 @@ async def cmd_meme_list(message: discord.Message, client: discord.Client, config
     await client.send_file(message.channel, fp=meme_list_io, filename="memes.txt",
                            content="{0}Here are the memes!".format(
                                "" if message.channel.is_private else message.author.mention + ", "))
+
+
+@command_decorator.command("meme search", "Shows the closest memes to a search request.")
+async def cmd_meme_list(message: discord.Message, client: discord.Client, config: dict):
+    """Uses the mashape api here: https://market.mashape.com/ronreiter/meme-generator
+    To return the list of most closely matching memes"""
+
+    # We get the list of memes
+    try:
+        helpers.log_info("Trying to load the meme image list from the meme generator mashape api...")
+        meme_list = await get_meme_list(config)
+        helpers.log_info("Successfully loaded the meme image list.")
+
+    except (asyncio.TimeoutError, json.JSONDecodeError) as e:
+        # We tell the issuing user that we weren't able to load the list
+        await client.send_message(message.channel,
+                                  "{0}I wasn't able to load the meme list because of an API error.".format(
+                                      "" if message.channel.is_private else message.author.mention + ", "))
+        return
+
+    # We parse the input
+    if not message.channel.is_private:
+        cleaned_raw_content = helpers.remove_anna_mention(client, message)[len("meme search "):].lower()
+    else:
+        cleaned_raw_content = message.content[len("meme search "):].lower()
+
+    # The input has to be atleast 1 char
+    if not (100 > len(cleaned_raw_content) > 1):
+        await client.send_message(message.channel,
+                                  "{0}You have to specify a search term longer than 1 character.".format(
+                                      "" if message.channel.is_private else message.author.mention + ", "))
+        return
+
+    # We use levenshtein distance and match the 3 most closely matching images, and send them
+    # basically, lowercase all memes, and make a list of the levenshtein distance between them and the query
+    lower_case_memes = tuple(map(lambda s: s.lower(), meme_list))
+    levenshtein_dists = tuple(zip(map(lambda s: Levenshtein.distance(cleaned_raw_content, s), lower_case_memes),
+                                  range(len(lower_case_memes))))
+
+    # We return the show_num memes with the lowest distance
+    show_num = 3
+
+    # We get the closest memes and send them all
+    least_dists = sorted(levenshtein_dists, key=lambda d: d[0])[:show_num]
+
+    # We loop through the dist, index, pairs in levenshtein dists, and send them
+    for inx, dist in enumerate(least_dists):
+        helpers.log_info("Sending meme search result {0} to {1}.".format(inx + 1, helpers.log_ob(message.author)))
+        await send_meme_in_channel(meme_list[dist[1]], "", "", "This is search result **{0}**!".format(inx + 1),
+                                   message.author, client, message.channel, config)
+        helpers.log_info("Done sending meme search result.")
 
 
 @command_decorator.command("meme make", "Creates a meme with the specified meme and bottom and top text. "
@@ -133,76 +232,39 @@ async def cmd_make_meme(message: discord.Message, client: discord.Client, config
     # The bottom text the user wants
     bottom_text = query_parameters[2]
 
-    # We try to fetch the meme
-    try:
-        helpers.log_info(
-            "Loading meme \"{0}\", with top text \"{1}\", and bottom text \"{2}\" from the meme generator mashape api...".format(
-                meme, top_text, bottom_text))
-
-        # We get the image with the proper texts, and send it in the chat.
-        meme_data, meme_resp = await helpers.mashape_json_api_request(config,
-                                                                      endpoint="https://ronreiter-meme-generator.p.mashape.com/meme",
-                                                                      return_raw_response=True, return_data_aswell=True,
-                                                                      params={"meme": meme, "top": top_text,
-                                                                              "bottom": bottom_text})
-        helpers.log_info("Done loading meme.")
-
-    except asyncio.TimeoutError:
-        await client.send_message(message.channel,
-                                  "{0}I wasn't able to get the meme because of network timeout.".format(
-                                      "" if message.channel.is_private else message.author.mention + ", "))
-
-        # We're done here
-        return
-
-    # We make sure the returned content type is not text/html, as that is the returned content type for an error msg
-    if meme_resp.content_type.startswith("text/html"):
-        # We failed to load the meme
-        await client.send_message(message.channel,
-                                  "{0}I wasn't able to load that meme with those parameters.".format(
-                                      "" if message.channel.is_private else message.author.mention + ", "))
-
-        # We're done here
-        return
-
-    helpers.log_info("Sending meme to {0}.".format(helpers.log_ob(message.author)))
-
-    # We download the meme into a BytesIO
-    meme_data_io = BytesIO(meme_data)
-
-    # We send the meme data
-    await client.send_file(message.channel, fp=meme_data_io, filename="meme." + meme_resp.content_type[len("image/"):],
-                           content="{0}Here you go!\nThis is the {1} meme.".format(
-                               "" if message.channel.is_private else message.author.mention + ", ", meme))
+    # We send the meme
+    await send_meme_in_channel(meme, top_text, bottom_text, "Here you go!", message.author, client, message.channel,
+                               config)
 
 
 @command_decorator.command("meme upload", "Uploads a new image to make available for the meme commands. "
-                                           "Only image formats are supported. Filesize is limited to 6MB.")
+                                          "Only image formats are supported. Filesize is limited to 6MB.")
 async def cmd_upload_meme(message: discord.Message, client: discord.Client, config: dict):
     """Uses the mashape api here: https://market.mashape.com/ronreiter/meme-generator
     Uploads a meme to the meme api. Only image formats are supported. We also limit to 6MB."""
-    
+
     # We check if the user attached a file to the issuing message
     if 10 > len(message.attachments) == 0 and (not max(map(lambda x: len(x.filename)), message.attachments) < 100):
         await client.send_message(message.channel,
                                   "{0}You need to provide an attachment to upload a meme. Only image formats are supported. Filesize is limited to 6MB.".format(
                                       "" if message.channel.is_private else message.author.mention + ", "))
-        
+
         # We're done here
         return
-        
+
     # We create a list of all the valid (image or video, I think...) attachments
     valid_attachments = []
-    
+
     for attachment in message.attachments:
         if ("width" in attachment) and ("height" in attachment) and attachment["size"] < 6 * (2 ** 20):
             # It's a valid attachment
             valid_attachments.append(attachment)
-            
+
             # We log
-            helpers.log_info("Got valid attachment with width {0}, height {1}, size {2} bytes, and filename {3} from {4}.".format(
-                attachment["width"], attachment["width"], attachment["size"], attachment["filename"],
-                helpers.log_ob(message.author)))
+            helpers.log_info(
+                "Got valid attachment with width {0}, height {1}, size {2} bytes, and filename {3} from {4}.".format(
+                    attachment["width"], attachment["width"], attachment["size"], attachment["filename"],
+                    helpers.log_ob(message.author)))
         else:
             # We send a message about an invalid file
             await client.send_message(message.channel,
@@ -210,13 +272,14 @@ async def cmd_upload_meme(message: discord.Message, client: discord.Client, conf
                                           "" if message.channel.is_private else message.author.mention + ", ",
                                           attachment["filename"]))
             await asyncio.sleep(0.5)
-            
+
     # We check if the user attached a file to the issuing message
     if len(valid_attachments) == 0:
-        await client.send_message(message.channel, "{0}All your provided attachments were invalid. Please try again with valid ones." 
-                                                    "Only image formats are supported. Filesize is limited to 6MB."
-                                                    .format("" if message.channel.is_private else message.author.mention + ", "))
-        
+        await client.send_message(message.channel,
+                                  "{0}All your provided attachments were invalid. Please try again with valid ones."
+                                  "Only image formats are supported. Filesize is limited to 6MB."
+                                  .format("" if message.channel.is_private else message.author.mention + ", "))
+
         # We're done here
         return
 

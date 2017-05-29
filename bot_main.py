@@ -18,7 +18,6 @@ import main_code.commands.admin.change_icon
 import main_code.commands.admin.list_referrals
 import main_code.commands.admin.repl
 import main_code.commands.regular.animal_commands
-import main_code.commands.regular.chess_commands
 import main_code.commands.regular.game_info_commands
 import main_code.commands.regular.game_search
 import main_code.commands.regular.gen_bot_invite

@@ -49,6 +49,10 @@ role_id_regex = re.compile(r'<@&\d+>')
 # The client object
 actual_client = discord.Client(cache_auth=False)
 
+# Info about the name of the game we're playing. In the format of [Has been changed since last discord update, NAME]
+# If the name is "", this will be interpreted as No game
+playing_game_info = [True, ""]
+
 
 def write_config(config_temp: dict):
     """This function writes the passed dict out to the config file as json."""
@@ -97,6 +101,7 @@ def log_text(text, level):
         print("Got error when trying to send email notification, error message: {0}".format(str(e)))
     except Exception as e:
         print("Got error when trying to log, error message {0}.".format(str(e)))
+
 
 def log_debug(text):
     log_text(text, 10)
@@ -277,7 +282,6 @@ async def send_long(client: discord.Client, message, channel: discord.Channel, p
                          range(0, len(message), msg_part_length)]
     else:
         message_parts = [message]
-
 
     # We send the message in multiple messages to bypass the 2000 char limit, and we pause between each message to not get rate-limited
     for split_message in message_parts:

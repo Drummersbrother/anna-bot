@@ -18,6 +18,7 @@ import main_code.commands.admin.change_icon
 import main_code.commands.admin.list_referrals
 import main_code.commands.admin.repl
 import main_code.commands.regular.animal_commands
+import main_code.commands.regular.chess_commands
 import main_code.commands.regular.game_info_commands
 import main_code.commands.regular.game_search
 import main_code.commands.regular.gen_bot_invite
@@ -571,12 +572,13 @@ async def restore_voice_persistent_state():
                     youtube_player.start()
 
                     # We set volume and pause if necessary
-                    helpers.log_info("Setting volume of the player to {0}.".format(info["volume"][0]))
-                    youtube_player.volume = info["volume"][0]
+                    if (len(info["volume"]) > 0) and (len(info["paused"]) > 0):
+                        helpers.log_info("Setting volume of the player to {0}.".format(info["volume"][0]))
+                        youtube_player.volume = info["volume"][0]
 
-                    if info["paused"][0]:
-                        helpers.log_info("Pausing player.")
-                        youtube_player.pause()
+                        if info["paused"][0]:
+                            helpers.log_info("Pausing player.")
+                            youtube_player.pause()
 
                     # We create the data for the new player in the real voice state dict
                     real_voice_state[server_id] = info
@@ -590,6 +592,9 @@ async def restore_voice_persistent_state():
 
     # We write the info dict we were able to create to the persistent state file
     main_code.commands.regular.voice_commands_playlist.store_persistent_voice_state()
+
+    # We handle setting the name of the audio as playing game name
+    main_code.commands.regular.voice_commands_playlist.handle_audio_title_game_name()
 
     # Log the end of the process
     helpers.log_info("Done restoring voice state.")
@@ -999,6 +1004,32 @@ def set_special_param(index: int, value):
         last_online_time_dict = value
 
 
+async def set_playing_game_name(interval: int = 2):
+    """Sets the playing game name to be whatever is in helpers.playing_game_name."""
+
+    # This runs forever, but since it is an async task, we just await sleep and then it will continue executing everything else
+    while True:
+        # We wait until the next time we should update
+        await asyncio.sleep(interval)
+
+        # We check if the name has updated
+        if helpers.playing_game_info[0]:
+            # We get the playing game name
+            game_name = helpers.playing_game_info[1]
+
+            # If the string is empty, the game should be None
+            game_name = None if game_name == "" else game_name
+
+            # We create a game object
+            game = discord.Game(name=game_name)
+
+            # We set that the name hasn't been updated
+            helpers.playing_game_info[0] = False
+
+            # We set the game
+            await client.change_presence(game=game, afk=False)
+
+
 async def webserver_post_last_online_list(server_address: str, server_port: int, interval: int):
     """This method is called periodically and handler posting data about last online times for users
     on a discord server to an anna-falcon-server instance."""
@@ -1118,6 +1149,9 @@ def start_anna():
 
     # Storing the time at which the bot was started
     config["stats"]["volatile"]["start_time"] = time.time()
+
+    # We setup a recurring task that will set the name of the playing game to be whatever is in helpers.playing_game_name
+    game_name_setter = client.loop.create_task(set_playing_game_name())
 
     # We set up the webserver handling if the user has indicated that we're using a webserver
     if config["webserver_config"]["use_webserver"]:

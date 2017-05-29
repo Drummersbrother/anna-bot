@@ -1,4 +1,5 @@
 import asyncio
+import concurrent
 import json
 import os.path
 import re
@@ -27,8 +28,9 @@ def store_persistent_voice_state():
 
     # We open and close the state file, and we use some tricks to get the filepath since it is above this file
     try:
-        with open(os.path.join(os.path.dirname(__file__), "..", "..", "..", "persistent_state", "voice_state.json"), mode="w") as voice_state_file:
-            
+        with open(os.path.join(os.path.dirname(__file__), "..", "..", "..", "persistent_state", "voice_state.json"),
+                  mode="w") as voice_state_file:
+
             # We store the data that is persistent (everything except the queue)
             saved_data = {}
             for key, val in server_queue_info_dict.items():
@@ -37,11 +39,11 @@ def store_persistent_voice_state():
                 saved_data[key]["queue"] = []
                 saved_data[key]["volume"] = [player.volume for player in val["queue"]]
                 saved_data[key]["paused"] = [not player.is_playing() for player in val["queue"]]
-            
+
             # We dump the persistent data to disk via json
             json.dump(saved_data, voice_state_file)
             helpers.log_info("Stored voice state to disk.")
-            
+
     except BaseException as e:
         print(traceback.format_exception(*sys.exc_info()))
 
@@ -50,15 +52,16 @@ def use_persistent_info_dict(func):
     """This is meant to be used as a decorator to all functions 
     that modify the server_queue_info_dict. 
     It saves the state of the dict into a json file (/persistent_state/voice_state.json from the top of the bot)"""
+
     def decorated_func(*args, **kwargs):
         # We execute the function
         result = func(*args, **kwargs)
-    
+
         # We store the persistent state from the info dict to disk
         store_persistent_voice_state()
-        
+
         return result
-    
+
     # We return the decorated version of the function
     return decorated_func
 
@@ -67,23 +70,38 @@ def async_use_persistent_info_dict(func):
     """This is meant to be used as a decorator to all functions 
     that modify the server_queue_info_dict. This is for async functions.
     It saves the state of the dict into a json file (/persistent_state/voice_state.json from the top of the bot)"""
+
     async def decorated_func(*args, **kwargs):
         # We execute the function
         result = await func(*args, **kwargs)
 
         # We store the persistent state from the info dict to disk
         store_persistent_voice_state()
-        
+
         return result
 
     # We return the decorated version of the function
     return decorated_func
 
 
+def async_use_game_name_changer(func):
+    """Wraps a function so it changes the name of the playing game if it should, after the function has returned."""
+
+    # The function we return
+    async def decorated_func(*args, **kwargs):
+        result = await func(*args, **kwargs)
+        # We execute the name changer
+        handle_audio_title_game_name()
+        return result
+
+    # We return the decorated function
+    return decorated_func
+
 @command_decorator.command("voice join channel", "Joins the specified voice channel if anna can access it.",
                            cmd_special_params=[True, False, False])
 @async_use_persistent_info_dict
-async def cmd_join_voice_channel(message: discord.Message, client: discord.Client, config: dict, ignored_command_message_ids: list):
+async def cmd_join_voice_channel(message: discord.Message, client: discord.Client, config: dict,
+                                 ignored_command_message_ids: list):
     """This command is issued to make anna join a voice channel if she has access to it on the server where this command was issued."""
 
     # We check if the issuing user has the proper permissions on this server
@@ -132,18 +150,18 @@ async def cmd_join_voice_channel(message: discord.Message, client: discord.Clien
                                           message.author.mention + ", there are %i voice channels on this server with that name, please message me the number of the channel that you want me to join within 1 minute (e.g. \"%s 0\"):\n--------------------" % (
                                               len(
                                                   channel_candidates), message.server.me.mention) + "".join([(
-                                                                                                                 "\nNumber %s:\n\t%s users currently connected.\n--------------------" % (
-                                                                                                                     str(
-                                                                                                                         candidate[
-                                                                                                                             1]),
-                                                                                                                     str(
-                                                                                                                         len(
-                                                                                                                             candidate[
-                                                                                                                                 0].voice_members))))
-                                                                                                             for
-                                                                                                             candidate
-                                                                                                             in
-                                                                                                             channel_candidates]))
+                                              "\nNumber %s:\n\t%s users currently connected.\n--------------------" % (
+                                                  str(
+                                                      candidate[
+                                                          1]),
+                                                  str(
+                                                      len(
+                                                          candidate[
+                                                              0].voice_members))))
+                                              for
+                                              candidate
+                                              in
+                                              channel_candidates]))
 
                 response_message = await client.wait_for_message(timeout=60, author=message.author,
                                                                  channel=message.channel,
@@ -224,9 +242,12 @@ async def cmd_join_voice_channel(message: discord.Message, client: discord.Clien
                 # We print the alternatives to the user so they can message us back with the channel they want us to join
                 await client.send_message(message.channel,
                                           message.author.mention + ", there are %i voice channels on this server with that name, please message me the number of the channel that you want me to join within 1 minute (e.g. \"%s 0\"):\n--------------------" % (
-                                              len(channel_candidates), message.server.me.mention) + 
-                                              "".join([("\nNumber {0}:\n\t{1} users currently connected.\n--------------------".format(str(candidate[1]), 
-                                              str(len(candidate[0].voice_members)))) for candidate in channel_candidates]))
+                                              len(channel_candidates), message.server.me.mention) +
+                                          "".join([(
+                                              "\nNumber {0}:\n\t{1} users currently connected.\n--------------------".format(
+                                                  str(candidate[1]),
+                                                  str(len(candidate[0].voice_members)))) for candidate in
+                                              channel_candidates]))
 
                 response_message = await client.wait_for_message(timeout=60, author=message.author,
                                                                  channel=message.channel,
@@ -365,6 +386,7 @@ async def cmd_join_self_voice_channel(message: discord.Message, client: discord.
 
 @command_decorator.command("voice leave", "Leaves the voice channel anna is connected to")
 @async_use_persistent_info_dict
+@async_use_game_name_changer
 async def cmd_leave_voice_channel(message: discord.Message, client: discord.Client, config: dict):
     """This command is issued to make anna leave a voice channel if she is connected to it on the server where this command was issued."""
 
@@ -402,6 +424,7 @@ async def cmd_leave_voice_channel(message: discord.Message, client: discord.Clie
 @command_decorator.command("voice play link",
                            "Adds the audio of the given link to the voice queue. The only platform that is guaranteed to work is youtube but it should work with all the sites listed here: https://rg3.github.io/youtube-dl/supportedsites.html , but I give no guarantees.")
 @async_use_persistent_info_dict
+@async_use_game_name_changer
 async def cmd_voice_play_link(message: discord.Message, client: discord.Client, config: dict):
     """This command is used to queue up the audio of a youtube video at the given link, to the server's queue."""
 
@@ -495,6 +518,7 @@ async def cmd_voice_play_link(message: discord.Message, client: discord.Client, 
 @command_decorator.command("voice play search youtube",
                            "Adds the audio of the first youtube search result from given query to the voice queue.")
 @async_use_persistent_info_dict
+@async_use_game_name_changer
 async def cmd_voice_play_youtube_search(message: discord.Message, client: discord.Client, config: dict):
     """This method is used to add a youtube video to the server queue by picking the top search result from youtube on the specified query."""
 
@@ -630,6 +654,7 @@ async def cmd_voice_sound_effect(message: discord.Message, client: discord.Clien
 @command_decorator.command("voice playlist play",
                            "Starts playing a playlist, and puts the playlist at the front of the queue.")
 @async_use_persistent_info_dict
+@async_use_game_name_changer
 async def cmd_voice_playlist_play(message: discord.Message, client: discord.Client, config: dict):
     """This command plays the specified playlist file if it exists."""
 
@@ -738,6 +763,9 @@ async def cmd_voice_playlist_play(message: discord.Message, client: discord.Clie
                     youtube_player.title, ("N/A" if youtube_player.uploader is None else youtube_player.uploader),
                     voice.channel.name, voice.server.name))
 
+            # We handle the game name
+            handle_audio_title_game_name()
+
 
     except IOError as e:
         # The file either doesn't exist, or we don't have permission to open it, but we assume that it doesn't exist
@@ -748,6 +776,7 @@ async def cmd_voice_playlist_play(message: discord.Message, client: discord.Clie
 @command_decorator.command("voice playlist stop",
                            "Stops playing the current playlist, and starts playing the rest of the queue.")
 @async_use_persistent_info_dict
+@async_use_game_name_changer
 async def cmd_voice_playlist_stop(message: discord.Message, client: discord.Client, config: dict):
     """This command stops playing a playlist and switches to the regular queue playing. It does this by invoking the queue handler."""
 
@@ -996,6 +1025,7 @@ async def cmd_voice_play_toggle(message: discord.Message, client: discord.Client
 
 
 @command_decorator.command("voice stop", "Stop the audio that anna is currently playing.")
+@async_use_game_name_changer
 async def cmd_voice_play_stop(message: discord.Message, client: discord.Client, config: dict):
     """This method is used to stop and remove the currently playing audio from anna in a server. This basically does queue.pop()"""
 
@@ -1061,7 +1091,8 @@ async def cmd_voice_queue_list(message: discord.Message, client: discord.Client,
     queue_message = ""
 
     # We check if the server has anything in its queue at all
-    if len(server_queue_info_dict[message.server.id]["queue"]) == 0:
+    if (not message.server.id in server_queue_info_dict) or len(
+            server_queue_info_dict[message.server.id]["queue"]) == 0:
         # Nothing in the queue
         await client.send_message(message.channel, message.author.mention + ", this server's queue is empty.")
         # We're done here
@@ -1102,12 +1133,10 @@ async def cmd_voice_queue_list(message: discord.Message, client: discord.Client,
             # There is no given description
             safe_description = "There is no provided description for this audio."
 
-        print(safe_description)
-
         fields = helpers.remove_discord_formatting(str(inx), safe_title, safe_uploader,
                                                    str(safe_duration),
                                                    safe_description[:300].replace("://",
-                                                                                    ":// ") + " \u2026")  # Unicode horizontal ellipsis
+                                                                                  ":// ") + " \u2026")  # Unicode horizontal ellipsis
         fields.insert(2, ("*. **Currently playing this**" if inx == 0 else "*"))
         fields.insert(4, player.url.replace("_", "\\_"))
         queue_message += "-------------------------\n\tNr. **{0}**, *{1}{2}\nBy *{3}* at URL __{4}__\nDuration: **{5}** seconds.\nDescription:\n{6}\n-------------------------\n".format(
@@ -1120,6 +1149,8 @@ async def cmd_voice_queue_list(message: discord.Message, client: discord.Client,
 
 @command_decorator.command("queue remove",
                            "Removes the specified queue index from the queue, if the index is 0, it effectively acts as a skip command.")
+@async_use_persistent_info_dict
+@async_use_game_name_changer
 async def cmd_voice_queue_remove(message: discord.Message, client: discord.Client, config: dict):
     """This method removes a specified stream from the current queue for the server that it was called from."""
 
@@ -1187,6 +1218,8 @@ async def cmd_voice_queue_remove(message: discord.Message, client: discord.Clien
 
 
 @command_decorator.command("queue skip", "Alias for **queue remove 0**.")
+@async_use_persistent_info_dict
+@async_use_game_name_changer
 async def cmd_voice_queue_remove(message: discord.Message, client: discord.Client, config: dict):
     """This method is an alias for queue remove 0."""
 
@@ -1204,7 +1237,8 @@ async def cmd_voice_queue_remove(message: discord.Message, client: discord.Clien
         return
 
     # We check if there are any stream players in the server
-    if len(server_queue_info_dict[message.server.id]["queue"]) == 0:
+    if (not message.server.id in server_queue_info_dict) or len(
+            server_queue_info_dict[message.server.id]["queue"]) == 0:
         # There is no audio playing in this server
         await client.send_message(message.channel,
                                   message.author.mention + ", there isn't anything in the queue on this server, so you can't skip anything in it.")
@@ -1234,6 +1268,7 @@ async def cmd_voice_queue_remove(message: discord.Message, client: discord.Clien
 
 @command_decorator.command("queue clear", "Clears the current voice queue, and stops the currently playing audio.")
 @async_use_persistent_info_dict
+@async_use_game_name_changer
 async def cmd_voice_queue_clear(message: discord.Message, client: discord.Client, config: dict):
     """This method clears/resets the current queue for the server that ít was called from."""
 
@@ -1279,6 +1314,7 @@ async def cmd_voice_queue_clear(message: discord.Message, client: discord.Client
 @command_decorator.command("queue forward",
                            "Pauses the currently playing audio, moves the specified queue index to the front, and starts playing that instead.")
 @async_use_persistent_info_dict
+@async_use_game_name_changer
 async def cmd_voice_queue_forward(message: discord.Message, client: discord.Client, config: dict):
     """This method brings a specified stream in the current queue (for the server that it was called from) forward to the front of the queue.
     It does not remove the currently playing stream, that's what the stop command does."""
@@ -1363,7 +1399,8 @@ async def cmd_voice_queue_forward(message: discord.Message, client: discord.Clie
 
 @command_decorator.command("voice roles list", "Lists the roles that are allowed to issue voice commands.",
                            cmd_special_params=[False, True, False])
-async def cmd_voice_permissions_list_allowed(message: discord.Message, client: discord.Client, config: dict, config_nope: dict):
+async def cmd_voice_permissions_list_allowed(message: discord.Message, client: discord.Client, config: dict,
+                                             config_nope: dict):
     """This command lists the current allowed voice roles. It takes 2 config parameters because it has special param index 1 enabled, this means it can change the global config object"""
 
     # We check if the message was sent in a regular channel
@@ -1426,7 +1463,8 @@ async def cmd_voice_permissions_list_allowed(message: discord.Message, client: d
 @command_decorator.command("voice roles add",
                            "Adds a role to the list of roles that are allowed to issue voice commands.",
                            cmd_special_params=[False, True, False])
-async def cmd_voice_permissions_add_allowed(message: discord.Message, client: discord.Client, config: dict, config_nope: dict):
+async def cmd_voice_permissions_add_allowed(message: discord.Message, client: discord.Client, config: dict,
+                                            config_nope: dict):
     """This command adds a role to the current allowed voice roles, and writes it to the config."""
 
     # We check if the message was sent in a regular channel
@@ -1482,7 +1520,8 @@ async def cmd_voice_permissions_add_allowed(message: discord.Message, client: di
 @command_decorator.command("voice roles remove",
                            "Removes a role from the list of roles that are allowed to issue voice commands.",
                            cmd_special_params=[False, True, False])
-async def cmd_voice_permissions_remove_allowed(message: discord.Message, client: discord.Client, config: dict, config_nope: dict):
+async def cmd_voice_permissions_remove_allowed(message: discord.Message, client: discord.Client, config: dict,
+                                               config_nope: dict):
     """This command removes a role to the current allowed voice roles, and writes it to the config."""
 
     # We check if the message was sent in a regular channel
@@ -1611,6 +1650,20 @@ def find_stream_player(stream_player):
     return server_id, inx_player
 
 
+def handle_audio_title_game_name():
+    """Checks if we should change our game title to the title of the currently playing audio, and does so if we should."""
+
+    # Here we set our "Currently playing" message, but only if we're only playing 1 audio stream, otherwise we set it empty
+    playing_servers_list = list(
+        {server_id: info for server_id, info in server_queue_info_dict.items() if len(info["queue"]) > 0}.values())
+
+    if len(playing_servers_list) == 1:
+        helpers.playing_game_info = [True, playing_servers_list[0]["queue"][0].title]
+
+    else:
+        if not helpers.playing_game_info[1] == "":
+            helpers.playing_game_info = [True, ""]
+
 @use_persistent_info_dict
 def queue_handler(current_player):
     """This method gets called after each streamplayer stops, with current_player being the player that exited.
@@ -1669,6 +1722,9 @@ def queue_handler(current_player):
             "Now playing audio feed with title: \"{0}\", uploaded by: \"{1}\", duration: {2}, and done with handling server queue.".format(
                 current_player.title, current_player.uploader, current_player.duration))
 
+        # We handle the game name
+        handle_audio_title_game_name()
+
 
 @use_persistent_info_dict
 def insert_start_player_future_in_queue(player_future, server_id: str, target_volume: float, index: int):
@@ -1720,6 +1776,10 @@ def insert_start_player_future_in_queue(player_future, server_id: str, target_vo
             "Was not able to load playlist entry at index {0} in playlist {1} because of an unknown error. Stopping playlist. Info: {2}".format(
                 index, server_queue_info_dict[server_id]["playlist_info"]["playlist_name"], str(e)))
 
+        # If this was an error stemming from the event loop closing, this probably means that the bot was exited, so we just exit, and don't stop playing
+        if isinstance(e, concurrent.futures.CancelledError):
+            return
+
         # We aren't using playlists if we get to this code, so we disable playlists, and play the next audio feed in the queue
         server_queue_info_dict[server_id]["playlist_info"]["is_playing"] = False
         server_queue_info_dict[server_id]["playlist_info"]["current_index"] = -1
@@ -1755,6 +1815,8 @@ def insert_start_player_future_in_queue(player_future, server_id: str, target_vo
             server_queue_info_dict[server_id]["playlist_info"]["current_index"],
             server_queue_info_dict[server_id]["playlist_info"]["playlist_name"], index))
 
+    # We handle the game name
+    handle_audio_title_game_name()
 
 @use_persistent_info_dict
 def update_server_playlist(server_id: str, target_volume: float):

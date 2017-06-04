@@ -266,22 +266,31 @@ async def send_long(client: discord.Client, message, channel: discord.Channel, p
     Append is appended to all messages, not to the whole message input."""
 
     # How long we wait between each message
-    cooldown_time = 0.5
+    cooldown_time = 1
 
     # We don't let append and prepend increase the length of the message
-    msg_part_length = 1999 - (len(prepend) + len(append))
+    msg_part_length = 1990 - (len(prepend) + len(append))
 
     # We don't want some weird errors
     if msg_part_length <= 0:
         raise ValueError()
 
-    # We check if the message is already split into parts
-    if not isinstance(message, str):
-        # We split the input message into 1999 char chunks
-        message_parts = [(prepend + message[i:i + msg_part_length] + append) for i in
-                         range(0, len(message), msg_part_length)]
+    if isinstance(message, str):
+        # We check if we should split the message
+        if len(message):
+            # We split the input message into 1999 char chunks
+            message_parts = [(prepend + message[i:i + msg_part_length] + append) for i in
+                             range(0, len(message), msg_part_length)]
+        else:
+            message_parts = [message]
     else:
-        message_parts = [message]
+        # We merge as many messages as possible
+        message_parts = [""]
+        for msg in message:
+            if (len(message_parts[-1]) + len(msg) + len(prepend + append) + 1) < msg_part_length:
+                message_parts[-1] += "\n" + prepend + msg + append
+            else:
+                message_parts.append(msg)
 
     # We send the message in multiple messages to bypass the 2000 char limit, and we pause between each message to not get rate-limited
     for split_message in message_parts:

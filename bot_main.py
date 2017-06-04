@@ -5,6 +5,7 @@ import os
 import sys
 import time
 import traceback
+from collections import namedtuple
 
 import aiohttp
 import async_timeout
@@ -24,6 +25,7 @@ import main_code.commands.regular.gen_bot_invite
 import main_code.commands.regular.invite_link
 import main_code.commands.regular.list_ids
 import main_code.commands.regular.meme_maker
+import main_code.commands.regular.pokemon_go_commands
 import main_code.commands.regular.report_stats
 import main_code.commands.regular.start_server
 import main_code.commands.regular.vanity_role_commands
@@ -415,6 +417,17 @@ async def on_ready():
     One of them is outputting info about who we're logged in as."""
     helpers.log_info("Anna-bot has now logged in as: {0} with id {1}".format(client.user.name, client.user.id))
 
+    helpers.log_info("Restoring pokemon state...")
+
+    # We restore the pokemon state
+    restore_pokemon_state()
+
+    # We setup a recurring task that handles pokemon go notifications, as we pass a config here, the config reloader changes the config object in that file
+    background_tasks["pokemon_go_handler"] = client.loop.create_task(
+        main_code.commands.regular.pokemon_go_commands.notification_handler_loop(config))
+
+    helpers.log_info("Done restoring pokemon state.")
+
     # We restore the voice state from file, and also store it to the voice_commands_playlist file's info dict
     try:
         await restore_voice_persistent_state()
@@ -422,6 +435,35 @@ async def on_ready():
         # We catch all errors as this restoration process is not trusted in any way at all.
         # We just print info about the error
         traceback.print_exception(*sys.exc_info())
+
+
+def restore_pokemon_state():
+    """Takes the /persistent_state/pokemon_state.json and interprets it to restore the data into the pokemon_go_commands.py file."""
+
+    # We open and close the state file
+    try:
+        with open(os.path.join(os.path.dirname(__file__), "persistent_state", "pokemon_state.json"),
+                  mode="r") as poke_state_file:
+
+            # A pokemon object, values will be "N/A" if no data was available
+            PoGoPokemon = namedtuple("PoGoPokemon", ("lat", "lng", "pkdex_id", "iv", "name", "f", "g", "h"))
+
+            # We get the persistent data from disk via json
+            saved_data = json.load(poke_state_file)
+
+            # The set of pokemons from the persistent state
+            pokemons = set()
+
+            # We add all the pokemons from the saved data
+            for pokemon in saved_data["pokemons"]:
+                if len(pokemon) == 8: pokemons.add(PoGoPokemon(*pokemon))
+
+            # We move the loaded data into the pokemon command file
+            main_code.commands.regular.pokemon_go_commands.last_pokemons = pokemons
+            main_code.commands.regular.pokemon_go_commands.poke_config = saved_data["poke_config"]
+
+    except BaseException as e:
+        print(traceback.format_exception(*sys.exc_info()))
 
 
 async def restore_voice_persistent_state():
@@ -976,6 +1018,21 @@ async def cmd_admin_reload_config(message: discord.Message, passed_client: disco
     # Telling the issuing user that we're done updating the vanity command dict
     await passed_client.send_message(message.channel, "Done updating vanity commands!")
 
+    # Telling the issuing user that we're updating the pokemon settings
+    await passed_client.send_message(message.channel, "Updating pokemon settings...")
+
+    # Logging that we're updating the pokemon settings
+    helpers.log_info("Updating pokemon settings...")
+
+    # Updating the config object in the pokemon go file, since the config about interval and such could have changed
+    main_code.commands.regular.pokemon_go_commands.config = config
+
+    # Logging that we're done updating the pokemon settings
+    helpers.log_info("Done updating pokemon settings")
+
+    # Telling the issuing user that we're done updating the config object in the pokemon go file
+    await passed_client.send_message(message.channel, "Done updating pokemon settings!")
+
     # Telling the issuing user that we're reloading the config
     # Checking if we're in a private channel or if we're in a regular channel so we can format our message properly
     if message.channel.is_private:
@@ -1081,6 +1138,8 @@ ignored_command_message_ids = []
 server_and_stream_players = []
 # The info to send to the anna-falcon webserver
 last_online_time_dict = {}
+# The background asyncio tasks we have, keys are names of tasks, vals are the tasks
+background_tasks = {}
 
 
 def start_anna():
@@ -1150,17 +1209,17 @@ def start_anna():
     config["stats"]["volatile"]["start_time"] = time.time()
 
     # We setup a recurring task that will set the name of the playing game to be whatever is in helpers.playing_game_name
-    game_name_setter = client.loop.create_task(set_playing_game_name())
+    background_tasks["game_name_setter"] = client.loop.create_task(set_playing_game_name())
 
     # We set up the webserver handling if the user has indicated that we're using a webserver
     if config["webserver_config"]["use_webserver"]:
         # We create the object we're going to send to the webserver
         last_online_time_dict = {"servers": [], "auth_token": config["webserver_config"]["auth_token"]}
 
-        webserver_task = client.loop.create_task(
-            webserver_post_last_online_list(config["webserver_config"]["server_address"],
-                                            config["webserver_config"]["server_port"],
-                                            config["webserver_config"]["update_interval_seconds"]))
+    background_tasks["webserver_task"] = client.loop.create_task(
+        webserver_post_last_online_list(config["webserver_config"]["server_address"],
+                                        config["webserver_config"]["server_port"],
+                                        config["webserver_config"]["update_interval_seconds"]))
 
     try:
         # We have a while loop here because some errors are only catchable from the client.run method, as they are raised by tasks in the event loop

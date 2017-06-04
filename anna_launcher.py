@@ -9,7 +9,8 @@ from importlib.util import find_spec
 from sys import platform as _platform
 
 # The modules that have to be available for anna-bot to be able to run
-required_modules = {"discord", "youtube_dl", "aiohttp", "aiodns", "asyncio", "overwatch_api"}
+required_modules = {"discord", "youtube_dl", "aiohttp", "aiodns", "asyncio", "overwatch_api", "async_timeout",
+                    "Levenshtein"}
 
 if _platform == "win32":
     # We're running on windows

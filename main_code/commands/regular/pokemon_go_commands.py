@@ -392,8 +392,20 @@ async def subscribe_pogo_notification_channel(message: discord.Message, client: 
         sum([True for val in [parse_iv, parse_cp] if val is not None]) + (1 if parse_pokemon else 0)):
         # The user has not specified a value for each flag
         await client.send_message(message.channel,
-                                  "You need to specify a value for each flag. This channel is not subscribed to pogo notifications because of invalid parameters")
+                                  "You need to specify a value for each flag. "
+                                  "This channel is not subscribed to pogo notifications because of invalid parameters")
         return
+
+    # We make sure that the flags and arguments alternate
+    for inx, part in enumerate(split_query):
+        # If the index is even, then the part should be a flag, otherwise it should be a value
+        if inx % 2 == 0:
+            if not part in ("-only", "-maxiv", "-maxcp", "-miniv", "-mincp"):
+                # The user did not specify a valid order of flags
+                await client.send_message(message.channel,
+                                          "You need to specify a flag and then a value, not any other order. "
+                                          "This channel is not subscribed to pogo notifications because of invalid parameters.")
+                return
 
     # We try to parse iv and cp, and then pokemon
     # If the parsing fails, we tell the user and don't actually sub them

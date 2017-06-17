@@ -19,6 +19,7 @@ import main_code.commands.admin.change_icon
 import main_code.commands.admin.list_referrals
 import main_code.commands.admin.repl
 import main_code.commands.regular.animal_commands
+import main_code.commands.regular.chess_commands
 import main_code.commands.regular.game_info_commands
 import main_code.commands.regular.game_search
 import main_code.commands.regular.gen_bot_invite
@@ -38,9 +39,6 @@ from main_code import helpers
 
 # Setting up the client object
 client = helpers.actual_client
-
-
-# TODO Handle group calls and messages, and/or move to the commands extension
 
 @client.event
 async def on_message(message: discord.Message):
@@ -1207,6 +1205,10 @@ def start_anna():
 
     # Storing the time at which the bot was started
     config["stats"]["volatile"]["start_time"] = time.time()
+
+    # We setup a recurring task that will cleanup timeouted chess sessions
+    background_tasks["chess_session_cleaner"] = client.loop.create_task(
+        main_code.commands.regular.chess_commands.clean_outdated_chess_sessions())
 
     # We setup a recurring task that will set the name of the playing game to be whatever is in helpers.playing_game_name
     background_tasks["game_name_setter"] = client.loop.create_task(set_playing_game_name())

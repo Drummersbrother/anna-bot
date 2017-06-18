@@ -15,7 +15,9 @@ logger.setLevel(logging.INFO)
 # We load the log file depending on what log file filename the user has specified in the config
 with open("config.json", mode="r", encoding="utf-8") as config_file:
     config = json.load(config_file)
-    handler = logging.FileHandler(filename=config["logging"]["log_file_name"], encoding='utf-8', mode='a')
+    handler = logging.handlers.RotatingFileHandler(filename=config["logging"]["log_file_name"], encoding='utf-8',
+                                                   mode='a', maxBytes=2 ** 22,
+                                                   backupCount=0)
 
 # Continuing the logger setup
 handler.setFormatter(logging.Formatter('%(asctime)s: %(levelname)s: %(name)s: %(message)s'))

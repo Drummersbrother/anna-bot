@@ -17,12 +17,16 @@ from ... import helpers
 chess_sessions = {}
 
 
+# TODO implement matches user-user
+
 class ChessSession(object):
     """Represents one chess game for one user. This is used with async with. Can be used multiple times, but only within async with statements."""
 
-    def __init__(self, user: discord.User, computation_timeout_seconds: float, operation_timeout: int, difficulty: int,
-                 engine_path: str, user_side_is_white: bool = True):
+    def __init__(self, user: discord.User, computation_timeout_seconds: float, operation_timeout: float,
+                 difficulty: int,
+                 engine_path: str, num_search_threads: int = 1, user_side_is_white: bool = True):
         self.user = user
+        self.num_search_threads = num_search_threads
         self.cpu_timeout = computation_timeout_seconds
         self.op_timeout = operation_timeout
         self.difficulty = difficulty
@@ -34,10 +38,18 @@ class ChessSession(object):
         self.engine = None
         self._in_with_statement = False
 
-    def get_board_png_link(self, highlist_last_move: bool = True):
+    @staticmethod
+    def get_coord_from_raw(raw):
+        """Takes an int which represents a board position and returns a stringsuch as e8."""
+        return str("abcdefgh"[raw % 8]) + str((raw // 8) + 1)
+
+    def get_board_png_link(self, highlist_last_move: bool = True, highlight_check: bool = True):
         """Returns a link that shows a png version of the board. No url quoting needed."""
-        return "https://backscattering.de/web-boardimage/board.png?fen={0}{1}".format(
-            quote(self.board.fen()), "" if not highlist_last_move else "&lastMove=" + self.board.peek().uci())
+        return "https://backscattering.de/web-boardimage/board.png?fen={0}{1}{2}".format(
+            quote(self.board.fen()),
+            "" if not highlist_last_move else "&lastMove=" + self.board.peek().uci(),
+            "" if not (highlight_check and self.board.is_check()) else "&check=" + self.get_coord_from_raw(
+                self.board.king(self.board.turn)))
 
     async def wait_for(self, future):
         """Does what asyncio.wait_for does, but with self.op_timeout as timeout. Do not mess with this, this is some fucking asyncio and concurrent.futures dark magic."""
@@ -55,7 +67,8 @@ class ChessSession(object):
         self.engine = uci.popen_engine(self.engine_path, setpgrp=True)
 
         # We set the difficulty
-        await self.wait_for(self.engine.setoption({"Skill Level": self.difficulty}, async_callback=True))
+        await self.wait_for(self.engine.setoption({"Skill Level": self.difficulty, "Threads": self.num_search_threads},
+                                                  async_callback=True))
 
         # We set the board position to the saved one
         await self.wait_for(self.engine.position(self.board, async_callback=True))
@@ -145,6 +158,26 @@ class ChessSession(object):
 
         return True
 
+    def game_state(self):
+        """Returns the current state of the game. The possible return values are:
+        "white": White has won.
+        "black": Black has won.
+        "draw": The game is a draw (stalemate, seventy-five-fold repetition and so on).
+        "ongoing": The game is still going.
+        """
+
+        # We get board state
+        board_state = self.board.result(claim_draw=True)
+
+        if board_state == "1-0":
+            return "white"
+        elif board_state == "0-1":
+            return "black"
+        elif board_state == "1/2-1/2":
+            return "draw"
+        else:
+            return "ongoing"
+
     def _check_in_awith(self):
         """Makes sure that the session is in a with statement."""
         if not self._in_with_statement:
@@ -168,11 +201,25 @@ class ChessSession(object):
                 "white" if self.user_side_is_white else "black"))
 
 
+def check_chess_enabled(func):
+    """A decorator that makes sure chess commands are enabled before the enclosed command is called"""
+
+    async def decorated(*args, **kwargs):
+        # The third arg will be the config, the second the client, and the first the calling message
+        if args[2]["chess_cmd"]["use_chess_commands"]:
+            return await func(*args, **kwargs)
+        else:
+            await args[1].send_message(args[0].channel, "Chess commands are not enabled.")
+
+    return decorated
+
+
 @command_decorator.command("chess",
                            "Starts a chess game, you can specify a difficulty if you want to. Valid difficulties are 0-20, "
                            "where 20 is grandmaster level and 0 is not very good. "
                            "Only integers are allowed (`19.5` doesn't work, but `19` works), default difficulty is 10. "
                            "Engine is stockfish. Moves are made with the `move` command.")
+@check_chess_enabled
 async def start_chess_cmd(message: discord.Message, client: discord.Client, config: dict):
     """Creates new chess session if none exists. User plays white."""
 
@@ -198,7 +245,11 @@ async def start_chess_cmd(message: discord.Message, client: discord.Client, conf
         user_difficulty = 10
 
     # We create a new chess session
-    chess_sessions[message.author.id] = ChessSession(message.author, 2, 2, 20, "/usr/local/bin/stockfish")
+    chess_sessions[message.author.id] = ChessSession(message.author,
+                                                     config["chess_cmd"]["search_time_milliseconds"] / 1000,
+                                                     config["chess_cmd"]["search_time_milliseconds"] / 1000,
+                                                     user_difficulty, config["chess_cmd"]["stockfish_path"],
+                                                     config["chess_cmd"]["search_threads"])
 
     await client.send_message(message.channel,
                               "I created a new chess game for you with difficulty **{0}**!".format(user_difficulty))
@@ -211,6 +262,7 @@ async def start_chess_cmd(message: discord.Message, client: discord.Client, conf
 
 @command_decorator.command("stop chess",
                            "Stops the chess game you're playing, obviously doesn't work if you aren't playing a chess game.")
+@check_chess_enabled
 async def stop_chess_cmd(message: discord.Message, client: discord.Client, config: dict):
     """Stops chess session if one exists."""
 
@@ -236,6 +288,7 @@ async def stop_chess_cmd(message: discord.Message, client: discord.Client, confi
                            "check wikipedia for a description. https://en.wikipedia.org/wiki/Chess_notation#Notation_systems_for_humans ."
                            "Moves are not strictly coordinate notation, only alphanumeric characters "
                            "will be taken into consideration (alphabet + digits)")
+@check_chess_enabled
 async def chess_move_cmd(message: discord.Message, client: discord.Client, config: dict):
     """Moves a chess piece for a user."""
 
@@ -273,33 +326,82 @@ async def chess_move_cmd(message: discord.Message, client: discord.Client, confi
             "User {0} successfully applied move {1} to their chess session.".format(helpers.log_ob(message.author),
                                                                                     raw_move_str))
 
+        # We send a picture of the board
+        await send_board_image(client, message.channel, chess_session)
+
+        # We check if the game ended
+        if await handle_game_done(client, message.author, message.channel, chess_session):
+            # The game ended
+            return
+
+        await asyncio.sleep(1)
+
         # The move was successful, we tell the user and let the computer think
         await client.send_message(message.channel,
                                   "{0}The computer will now think.".format(
                                       "" if message.channel.is_private else message.author.mention + " "))
 
-        await asyncio.sleep(1)
+        # We need to make sure that the number of concurrent searches are less than the max
+        while True:
+            if sum([session.is_thinking for session in chess_sessions.values()]) >= config["chess_cmd"][
+                "max_concurrent_searches"]:
+                # We wait until we check again
+                await asyncio.sleep(config["chess_cmd"]["search_time_milliseconds"] / 1000)
+            else:
+                # We let the computer think
+                try:
+                    did_chess_move = await chess_session.do_think_and_move()
+                    if not did_chess_move:
+                        raise RuntimeError("Got False return from computer think command.")
 
-        # We send a picture of the board
-        await send_board_image(client, message.channel, chess_session)
+                except RuntimeError as e:
+                    await client.send_message(message.channel,
+                                              "{0}The computer had an error, please try again later.".format(
+                                                  "" if message.channel.is_private else message.author.mention + " "))
 
-        # We let the computer think
-        try:
-            did_chess_move = await chess_session.do_think_and_move()
-            if not did_chess_move:
-                raise RuntimeError("Got False return from computer think command.")
+                    helpers.log_info("Got RuntimeError in chess computer thinking, error message:\n{0}".format(str(e)))
+                    # We're done here
+                    return
 
-        except RuntimeError as e:
-            await client.send_message(message.channel, "{0}The computer had an error, please try again later.".format(
-                "" if message.channel.is_private else message.author.mention + " "))
-
-            helpers.log_info("Got RuntimeError in chess computer thinking, error message:\n{0}".format(str(e)))
-            # We're done here
-            return
+                break
 
         # We tell the user about the computer's move
         await send_board_image(client, message.channel, chess_session,
                                content="The computer has now made a move, here is the current board!")
+
+        # We check if the game ended
+        if await handle_game_done(client, message.author, message.channel, chess_session):
+            # The game ended
+            return
+
+
+async def handle_game_done(client: discord.Client, member: discord.Member, channel: discord.Channel,
+                           chess_session: ChessSession):
+    """Checks if a chess session is over and sends the appropriate message to the user that was playing.
+    Returns True if the game ended, False otherwise"""
+
+    # We check if the game was won
+    game_state = chess_session.game_state()
+    if game_state is not "ongoing":
+
+        # Ratelimit avoidance
+        await asyncio.sleep(1)
+
+        # We check if the game was a draw
+        if game_state == "draw":
+            await client.send_message(channel, "{0}The game was a draw, and is now over.".format(
+                "" if channel.is_private else member.mention + " "))
+        else:
+            # The game is either a win for white or a win for black
+            await client.send_message(channel, "{0}**{1}** has won, and the game is now over.".format(
+                "" if channel.is_private else member.mention + " ", game_state.capitalize()))
+
+        # We delete the session from the session dict
+        chess_sessions.pop(member.id, None)
+
+        # We're done here
+        return True
+    return False
 
 
 async def send_board_image(client: discord.Client, channel: discord.Channel, chess_session: ChessSession,
@@ -327,11 +429,13 @@ async def send_board_image(client: discord.Client, channel: discord.Channel, che
         # We log
         helpers.log_info("Getting the board image for {0} failed with timeout error".format(chess_session.board.fen()))
         await client.send_message(channel, "Was not able to get an image of this board because of a timeout.")
+        return
     except ValueError:
         # We log
         helpers.log_info(
             "Getting the board image for {0} failed with a non-200 status.".format(chess_session.board.fen()))
         await client.send_message(channel, "Was not able to get an image of this board because of an HTTP error.")
+        return
 
     # We send the image
     await client.send_file(channel, image_bytes, filename="chess_board.png", content=content)
@@ -361,4 +465,4 @@ async def clean_outdated_chess_sessions():
                         round(time_now - session.last_time_used > timeout_minutes * 60, 2)))
 
                 # We remove the item from the dict
-                del chess_sessions[key]
+                chess_sessions.pop(key, None)

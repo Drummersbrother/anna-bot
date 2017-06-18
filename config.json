@@ -18,6 +18,13 @@
     "invite_max_uses": 1,
     "invite_valid_time_min": 10
   },
+  "chess_cmd": {
+    "use_chess_commands": true,
+    "stockfish_path": "PATH TO THE STOCKFISH CHESS ENGINE, PROBABLY /usr/local/bin/stockfish ON LINUX",
+    "max_concurrent_searches": MAX NUMBER OF CONCURRENT SEARCHES BY THE COMPUTER; RECOMMENDED IS corecount/2,
+    "search_threads": NUMBER OF THREADS THAT EACH SEARCH SHOULD USE; RECOMMENDED IS 1 OR 2,
+    "search_time_milliseconds": TIME IN MILLISECONDS THAT THE COMPUTER SHOULD SEARCH FOR EACH MOVE; RECOMMENDED IS 2000
+  },
   "start_server_cmd": {
     "start_server_allowed_channel_names_and_server_id_pairs": [
       [

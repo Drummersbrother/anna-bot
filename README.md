@@ -3,6 +3,18 @@
 [![Join the chat at https://gitter.im/anna-bot/Lobby](https://badges.gitter.im/anna-bot/Lobby.svg)](https://gitter.im/anna-bot/Lobby?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 A discord bot created for the https://mcevalonia.com minecraft server's discord server, but usable by all discord servers.
 
+## Some demonstrations
+![A command that gives a list of the available commands.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/help.gif)
+![A command that warns a user.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/warn.gif)
+![A command that runs arbitrary python code from an admin user.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/admin_eval.gif)
+![A command that displays an image of a cat.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/cat.gif)
+![A command that displays an image of a kitten.](demo_gifs/output_gifs/kitten.gif)
+![A command that displays an image of a dog.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/dog.gif)
+![A command that lets you play chess against the computer.](https://raw.githubusercontent.com/Drummersbrother/https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/chess.gif)
+![A command that creates a discord invite link for the server.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/invite.gif)
+![A command that plays a list of video links in order in a voice channel.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/playlist.gif)
+![A command that displays info about a particular overwatch battletag.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/overwatch.gif)
+
 ## How to run
 ### Dependencies:
 This bot uses Python 3.5.

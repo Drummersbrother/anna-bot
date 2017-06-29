@@ -4,7 +4,7 @@ async-timeout==1.2.0
 cchardet==2.0.0
 cffi==1.10.0
 chardet==3.0.2
-discord.py==0.16.7
+discord.py==0.16.8
 multidict==2.1.4
 overwatch-api==0.5
 packaging==16.8

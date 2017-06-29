@@ -4,16 +4,16 @@
 A discord bot created for the https://mcevalonia.com minecraft server's discord server, but usable by all discord servers.
 
 ## Some demonstrations
-![A command that gives a list of the available commands.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/help.gif)
-![A command that warns a user.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/warn.gif)
-![A command that runs arbitrary python code from an admin user.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/admin_eval.gif)
-![A command that displays an image of a cat.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/cat.gif)
+![A command that gives a list of the available commands.](demo_gifs/output_gifs/help.gif)
+![A command that warns a user.](demo_gifs/output_gifs/warn.gif)
+![A command that runs arbitrary python code from an admin user.](demo_gifs/output_gifs/admin_eval.gif)
+![A command that displays an image of a cat.](demo_gifs/output_gifs/cat.gif)
 ![A command that displays an image of a kitten.](demo_gifs/output_gifs/kitten.gif)
-![A command that displays an image of a dog.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/dog.gif)
-![A command that lets you play chess against the computer.](https://raw.githubusercontent.com/Drummersbrother/https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/chess.gif)
-![A command that creates a discord invite link for the server.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/invite.gif)
-![A command that plays a list of video links in order in a voice channel.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/playlist.gif)
-![A command that displays info about a particular overwatch battletag.](https://raw.githubusercontent.com/Drummersbrother/demo_gifs/output_gifs/overwatch.gif)
+![A command that displays an image of a dog.](demo_gifs/output_gifs/dog.gif)
+![A command that lets you play chess against the computer.](demo_gifs/output_gifs/chess.gif)
+![A command that creates a discord invite link for the server.](demo_gifs/output_gifs/invite.gif)
+![A command that plays a list of video links in order in a voice channel.](demo_gifs/output_gifs/playlist.gif)
+![A command that displays info about a particular overwatch battletag.](demo_gifs/output_gifs/overwatch.gif)
 
 ## How to run
 ### Dependencies:

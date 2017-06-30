@@ -17,11 +17,15 @@ A discord bot created for the https://mcevalonia.com minecraft server's discord 
 
 ## How to run
 ### Dependencies:
-This bot uses Python 3.5.
-
-Install the package dependencies with pip (probably useful to be done in a virtualenv):
+This bot uses Python 3.5. It's tested on ubuntu 16.04+.
+FFmpeg is needed for voice support, on ubuntu this can be installed with 
 ```
-pip3.5 install -r requirements.txt
+sudo apt install ffmpeg
+```
+
+Install the python dependencies with pip (probably useful to be done in a virtualenv):
+```
+python3.5 -m pip install -r requirements.txt
 ```
 
 ### Running it

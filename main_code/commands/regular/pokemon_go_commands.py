@@ -222,17 +222,19 @@ async def notification_handler_loop(passed_config: dict):
 
     # We run this forever, but it works since async sleep is async
     while True:
-        # We need the proper loop and being logged in properly
-        await helpers.actual_client.wait_until_ready()
+        # We make sure that pokemon commands are enabled
+        if bg_config["pokemon_commands"]["use_pgo_commands"]:
+            # We need the proper loop and being logged in properly
+            await helpers.actual_client.wait_until_ready()
 
-        # We do a notifications handling
-        try:
-            await handle_notifications()
-        except:
-            print(traceback.format_exc())
+            # We do a notifications handling
+            try:
+                await handle_notifications()
+            except:
+                helpers.log_info(traceback.format_exc())
 
         # We wait until the time we should be called
-        await asyncio.sleep(30)
+        await asyncio.sleep(bg_config["pokemon_commands"]["notification_timer_seconds"])
 
 
 @async_use_persistent_poke_dict

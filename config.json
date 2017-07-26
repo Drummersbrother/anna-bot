@@ -89,6 +89,10 @@
     "default_role": {
     "server_and_default_role_id_pairs": []
   },
+  "pokemon_commands": {
+    "notification_timer_seconds": 30,
+    "use_pgo_commands": true
+  },
   "vanity_role_commands": {
     "server_ids_and_roles": {
           "SERVER ID" : 

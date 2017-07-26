@@ -56,6 +56,56 @@ actual_client = discord.Client(cache_auth=False)
 playing_game_info = [True, ""]
 
 
+def async_uses_persistent_file(filename: str, write: bool = True):
+    """A decorator for async functions that use some kind of persistent file-backed data.
+    This does not work for function that return more than one value"""
+
+    def decorator(func):
+        async def decorated(*args, **kwargs):
+            with open("persistent_state/" + filename, mode="r", encoding="utf-8") as persistent_file:
+                previous_prefix_config = json.load(persistent_file)
+                result = await func(previous_prefix_config, *args, **kwargs)
+
+            if result is None:
+                result = (previous_prefix_config,)
+
+            if write:
+                with open("persistent_state/" + filename, mode="w", encoding="utf-8") as persistent_file:
+                    json.dump(result[0], persistent_file)
+
+            if len(result) == 2:
+                return result[1]
+
+        return decorated
+
+    return decorator
+
+
+def sync_uses_persistent_file(filename: str, write: bool = True):
+    """A decorator for sync functions that use some kind of persistent file-backed data.
+    This does not work for function that return more than one value"""
+
+    def decorator(func):
+        def decorated(*args, **kwargs):
+            with open("persistent_state/" + filename, mode="r", encoding="utf-8") as persistent_file:
+                previous_prefix_config = json.load(persistent_file)
+                result = func(previous_prefix_config, *args, **kwargs)
+
+            if result is None:
+                result = (previous_prefix_config,)
+
+            if write:
+                with open("persistent_state/" + filename, mode="w", encoding="utf-8") as persistent_file:
+                    json.dump(result[0], persistent_file)
+
+            if len(result) == 2:
+                return result[1]
+
+        return decorated
+
+    return decorator
+
+
 def write_config(config_temp: dict):
     """This function writes the passed dict out to the config file as json."""
     # We write the out to the file
@@ -161,21 +211,26 @@ async def remove_roles(client: discord.Client, member: discord.Member, roles: li
 
     # We log how many retries it took to remove the roles from the user
     log_info(
-        "Removing roles from user {0} took {1} retries.".format(log_ob(member), i))
+            "Removing roles from user {0} took {1} retries.".format(log_ob(member), i))
 
 
 def check_add_remove_roles(member: discord.Member, channel: discord.Channel) -> bool:
     """This method returns true if the currently logged in client can remove and add roles from the passed member in the passed channel."""
 
     return channel.permissions_for(
-        channel.server.me).manage_roles and member.top_role.position < member.server.me.top_role.position
+            channel.server.me).manage_roles and member.top_role.position < member.server.me.top_role.position
 
 
-def remove_anna_mention(client: discord.Client, message):
+@sync_uses_persistent_file("configured_prefixes.json", write=False)
+def remove_anna_mention(prefix_data: dict, client: discord.Client, message):
     """This function is used to remove the first part of an anna message so that the command code can more easily parse the command"""
 
-    # The weird mention for the bot user, the string manipulation is due to mention strings not being the same all the time
-    client_mention = client.user.mention[:2] + "!" + client.user.mention[2:]
+    # We only use the advanced behaviour for when the given message is a message object
+    if isinstance(message, discord.Message):
+        # We check if the server uses custom prefix, and if it doesn't use custom, we use the regular parsing.
+        client_mention = prefix_data.get(str(message.server.id), client.user.mention[:2] + "!" + client.user.mention[2:])
+    else:
+        client_mention = client.user.mention[:2] + "!" + client.user.mention[2:]
 
     # We check if the input is a message or just a string
     if isinstance(message, discord.Message):
@@ -191,18 +246,19 @@ def remove_anna_mention(client: discord.Client, message):
         # Removing the anna bot mention in the message so we can parse the arguments more easily
         cleaned_message = content.lstrip()[len(client.user.mention) + 1:]
 
-    return cleaned_message
+    return prefix_data, cleaned_message
 
 
-def is_message_command(message: discord.Message, client: discord.Client):
+@sync_uses_persistent_file("configured_prefixes.json", write=False)
+def is_message_command(prefix_data: dict, message: discord.Message, client: discord.Client):
     """This function is used to check whether a message is trying to issue an anna-bot command"""
 
-    # The weird mention for the bot user, the string manipulation is due to mention strings not being the same all the time
-    client_mention = client.user.mention[:2] + "!" + client.user.mention[2:]
+    # We check if the server uses custom prefix, and if it doesn't use custom, we use the regular parsing.
+    client_mention = prefix_data.get(str(message.server.id), client.user.mention[:2] + "!" + client.user.mention[2:])
 
     # We return if the message is a command or not
-    return message.content.lower().strip().startswith(client_mention) or message.content.lower().strip().startswith(
-        client.user.mention)
+    return prefix_data, (message.content.lower().strip().startswith(client_mention) or message.content.lower().strip().startswith(
+            client.user.mention)) if str(message.server.id) not in prefix_data else message.content.lower().strip().startswith(client_mention)
 
 
 def remove_discord_formatting(*strings):
